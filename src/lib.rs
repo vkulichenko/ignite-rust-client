@@ -116,7 +116,6 @@ impl Configuration {
 // === Client
 
 pub struct Client {
-    // config: Configuration,
     stream: Rc<RefCell<TcpStream>>,
 }
 
