@@ -1,5 +1,5 @@
 # Apache Ignite Rust Client
-[Ignite Thin Client](https://apacheignite.readme.io/docs/thin-clients) implementation in Rust
+[Ignite Thin Client](https://apacheignite.readme.io/docs/thin-clients) implementation in Rust.
 
 ## Supported operations
 * Cache `get`
