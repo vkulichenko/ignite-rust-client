@@ -50,7 +50,7 @@ impl Client {
                     Value::String(password).write(&mut request)?;
                 }
                 None => {
-                    request.put_i8(101);
+                    Value::write_null(&mut request)?;
                 }
             }
         }

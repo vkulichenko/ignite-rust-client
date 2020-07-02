@@ -99,4 +99,10 @@ impl Value {
             _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
         }
     }
+
+    pub(crate) fn write_null(bytes: &mut BytesMut) -> Result<()> {
+        bytes.put_i8(101);
+
+        Ok(())
+    }
 }
