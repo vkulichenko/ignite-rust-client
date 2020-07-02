@@ -39,6 +39,21 @@ impl Cache {
         )
     }
 
+    pub fn put_if_absent(&self, key: &Value, value: &Value) -> Result<bool> {
+        self.execute(
+            1002,
+            |mut request| {
+                key.write(&mut request)?;
+                value.write(&mut request)?;
+
+                Ok(())
+            },
+            |response| {
+                Ok(response.get_i8() != 0)
+            }
+        )
+    }
+
     pub fn clear(&self) -> Result<()> {
         self.execute(
             1013,

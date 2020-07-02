@@ -91,6 +91,7 @@ impl Client {
 mod tests {
     use crate::{Configuration, Client};
     use crate::binary::Value;
+    use crate::cache::Cache;
 
     #[test]
     fn test_put_get_i8() {
@@ -138,6 +139,28 @@ mod tests {
     }
 
     fn test_put_get(existent_key: Value, non_existent_key: Value, value: Value) {
+        let cache = cache();
+
+        assert_eq!(cache.clear(), Ok(()));
+        assert_eq!(cache.get(&existent_key), Ok(None));
+        assert_eq!(cache.put(&existent_key, &value), Ok(()));
+        assert_eq!(cache.get(&existent_key), Ok(Some(value)));
+        assert_eq!(cache.get(&non_existent_key), Ok(None));
+    }
+
+    #[test]
+    fn test_put_if_absent() {
+        let cache = cache();
+
+        assert_eq!(cache.clear(), Ok(()));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+        assert_eq!(cache.put_if_absent(&Value::I32(42), &Value::I32(1)), Ok(true));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.put_if_absent(&Value::I32(42), &Value::I32(2)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+    }
+
+    fn cache() -> Cache {
         let config = Configuration::default()
             .username("ignite")
             .password("ignite");
@@ -145,12 +168,6 @@ mod tests {
         let client = Client::start(config)
             .expect("Failed to create a client.");
 
-        let cache = client.cache("test-cache");
-
-        assert_eq!(cache.clear(), Ok(()));
-        assert_eq!(cache.get(&existent_key), Ok(None));
-        assert_eq!(cache.put(&existent_key, &value), Ok(()));
-        assert_eq!(cache.get(&existent_key), Ok(Some(value)));
-        assert_eq!(cache.get(&non_existent_key), Ok(None));
+        client.cache("test-cache")
     }
 }
