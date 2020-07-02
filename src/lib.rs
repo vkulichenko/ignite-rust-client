@@ -22,7 +22,7 @@ pub struct Version {
     patch: i16,
 }
 
-pub const VERSION: Version = Version { major: 1, minor: 0, patch: 0 };
+pub const VERSION: Version = Version { major: 1, minor: 1, patch: 0 };
 
 pub struct Client {
     stream: Rc<RefCell<TcpStream>>,
@@ -41,6 +41,19 @@ impl Client {
         request.put_i16_le(VERSION.minor);
         request.put_i16_le(VERSION.patch);
         request.put_i8(2);
+
+        if let Some(username) = config.username {
+            Value::String(username).write(&mut request)?;
+
+            match config.password {
+                Some(password) => {
+                    Value::String(password).write(&mut request)?;
+                }
+                None => {
+                    request.put_i8(101);
+                }
+            }
+        }
 
         let mut response = network::send(&mut stream.borrow_mut(), &request)?;
 
@@ -125,7 +138,11 @@ mod tests {
     }
 
     fn test_put_get(existent_key: Value, non_existent_key: Value, value: Value) {
-        let client = Client::start(Configuration::default())
+        let config = Configuration::default()
+            .username("ignite")
+            .password("ignite");
+
+        let client = Client::start(config)
             .expect("Failed to create a client.");
 
         let cache = client.cache("test-cache");
