@@ -272,7 +272,56 @@ impl Cache {
         )
     }
 
-    // TODO: remove_xxx
+    pub fn remove_key(&self, key: &Value) -> Result<bool> {
+        self.execute(
+            1016,
+            |request| {
+                key.write(request)
+            },
+            |response| {
+                Ok(response.get_i8() != 0)
+            }
+        )
+    }
+
+    pub fn remove_if_equals(&self, key: &Value, old_value: &Value) -> Result<bool> {
+        self.execute(
+            1017,
+            |request| {
+                key.write(request)?;
+                old_value.write(request)?;
+
+                Ok(())
+            },
+            |response| {
+                Ok(response.get_i8() != 0)
+            }
+        )
+    }
+
+    pub fn remove_keys(&self, keys: &[Value]) -> Result<()> {
+        self.execute(
+            1018,
+            |request| {
+                request.put_i32_le(keys.len() as i32);
+
+                for key in keys {
+                    key.write(request)?;
+                }
+
+                Ok(())
+            },
+            |_| { Ok(()) }
+        )
+    }
+
+    pub fn remove_all(&self) -> Result<()> {
+        self.execute(
+            1019,
+            |_| { Ok(()) },
+            |_| { Ok(()) }
+        )
+    }
 
     pub fn size(&self, peek_modes: &[PeekMode]) -> Result<i64> {
         self.execute(

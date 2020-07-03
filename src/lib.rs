@@ -365,6 +365,88 @@ mod tests {
     }
 
     #[test]
+    fn test_remove_key() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.remove_key(&Value::I32(1)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.remove_key(&Value::I32(2)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(1), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(2), &Value::I32(2)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.remove_key(&Value::I32(1)), Ok(true));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.remove_key(&Value::I32(2)), Ok(true));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+    }
+
+    #[test]
+    fn test_remove_if_equals() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+        assert_eq!(cache.remove_if_equals(&Value::I32(42), &Value::I32(1)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(42), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.remove_if_equals(&Value::I32(42), &Value::I32(0)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.remove_if_equals(&Value::I32(42), &Value::I32(1)), Ok(true));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+    }
+
+    #[test]
+    fn test_remove_keys() {
+        let cache = cache();
+
+        let keys = vec![Value::I32(1), Value::I32(2)];
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(None));
+        assert_eq!(cache.remove_keys(keys.as_slice()), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(1), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(2), &Value::I32(2)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(3), &Value::I32(3)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(Some(Value::I32(3))));
+        assert_eq!(cache.remove_keys(keys.as_slice()), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(Some(Value::I32(3))));
+    }
+
+    #[test]
+    fn test_remove_all() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.remove_all(), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(1), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(2), &Value::I32(2)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.remove_all(), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+    }
+
+    #[test]
     fn test_size() {
         let cache = cache();
 
