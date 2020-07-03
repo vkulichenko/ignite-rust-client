@@ -17,8 +17,8 @@ impl Cache {
     pub fn get(&self, key: &Value) -> Result<Option<Value>> {
         self.execute(
             1000,
-            |mut request| {
-                key.write(&mut request)
+            |request| {
+                key.write(request)
             },
             |response| {
                 Value::read(response)
@@ -29,9 +29,9 @@ impl Cache {
     pub fn put(&self, key: &Value, value: &Value) -> Result<()> {
         self.execute(
             1001,
-            |mut request| {
-                key.write(&mut request)?;
-                value.write(&mut request)?;
+            |request| {
+                key.write(request)?;
+                value.write(request)?;
 
                 Ok(())
             },
@@ -42,15 +42,63 @@ impl Cache {
     pub fn put_if_absent(&self, key: &Value, value: &Value) -> Result<bool> {
         self.execute(
             1002,
-            |mut request| {
-                key.write(&mut request)?;
-                value.write(&mut request)?;
+            |request| {
+                key.write(request)?;
+                value.write(request)?;
 
                 Ok(())
             },
             |response| {
                 Ok(response.get_i8() != 0)
             }
+        )
+    }
+
+    pub fn get_all(&self, keys: &[Value]) -> Result<Vec<(Value, Option<Value>)>> {
+        self.execute(
+            1003,
+            |request| {
+                request.put_i32_le(keys.len() as i32);
+
+                for key in keys {
+                    key.write(request)?;
+                }
+
+                Ok(())
+            },
+            |response| {
+                let len = response.get_i32_le() as usize;
+
+                let mut entries: Vec<(Value, Option<Value>)> = Vec::with_capacity(len);
+
+                for _ in 0 .. len {
+                    let key = Value::read(response)?;
+                    let value = Value::read(response)?;
+
+                    if let Some(key) = key {
+                        entries.push((key, value));
+                    }
+                }
+
+                Ok(entries)
+            }
+        )
+    }
+
+    pub fn put_all(&self, entries: &[(Value, Value)]) -> Result<()> {
+        self.execute(
+            1004,
+            |request| {
+                request.put_i32_le(entries.len() as i32);
+
+                for (key, value) in entries {
+                    key.write(request)?;
+                    value.write(request)?;
+                }
+
+                Ok(())
+            },
+            |_| { Ok(()) }
         )
     }
 

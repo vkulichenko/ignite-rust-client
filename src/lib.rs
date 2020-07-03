@@ -72,7 +72,7 @@ impl Client {
             let message = Value::read(&mut response)?;
 
             let message = match message {
-                Some(Value::String(s)) => s,
+                Some(Value::String(message)) => message,
                 _ => "Handshake unexpected failure".to_string(),
             };
 
@@ -141,7 +141,6 @@ mod tests {
     fn test_put_get(existent_key: Value, non_existent_key: Value, value: Value) {
         let cache = cache();
 
-        assert_eq!(cache.clear(), Ok(()));
         assert_eq!(cache.get(&existent_key), Ok(None));
         assert_eq!(cache.put(&existent_key, &value), Ok(()));
         assert_eq!(cache.get(&existent_key), Ok(Some(value)));
@@ -152,12 +151,63 @@ mod tests {
     fn test_put_if_absent() {
         let cache = cache();
 
-        assert_eq!(cache.clear(), Ok(()));
         assert_eq!(cache.get(&Value::I32(42)), Ok(None));
         assert_eq!(cache.put_if_absent(&Value::I32(42), &Value::I32(1)), Ok(true));
         assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
         assert_eq!(cache.put_if_absent(&Value::I32(42), &Value::I32(2)), Ok(false));
         assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+    }
+
+    #[test]
+    fn test_get_all() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(None));
+
+        assert_eq!(cache.put(&Value::I32(1), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(2), &Value::I32(2)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(3), &Value::I32(3)), Ok(()));
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(Some(Value::I32(3))));
+
+        let keys = vec![
+            Value::I32(1),
+            Value::I32(2),
+            Value::I32(3),
+        ];
+
+        let entries = vec![
+            (Value::I32(1), Some(Value::I32(1))),
+            (Value::I32(2), Some(Value::I32(2))),
+            (Value::I32(3), Some(Value::I32(3))),
+        ];
+
+        assert_eq!(cache.get_all(keys.as_slice()), Ok(entries));
+    }
+
+    #[test]
+    fn test_put_all() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(None));
+
+        let entries = vec![
+            (Value::I32(1), Value::I32(1)),
+            (Value::I32(2), Value::I32(2)),
+            (Value::I32(3), Value::I32(3)),
+        ];
+
+        assert_eq!(cache.put_all(entries.as_slice()), Ok(()));
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(Some(Value::I32(3))));
     }
 
     fn cache() -> Cache {
@@ -168,6 +218,10 @@ mod tests {
         let client = Client::start(config)
             .expect("Failed to create a client.");
 
-        client.cache("test-cache")
+        let cache = client.cache("test-cache");
+
+        assert_eq!(cache.clear(), Ok(()));
+
+        cache
     }
 }
