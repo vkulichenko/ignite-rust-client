@@ -15,9 +15,9 @@ pub enum PeekMode {
     Backup,
 }
 
-impl PeekMode {
-    fn ordinal(&self) -> u8 {
-        match self {
+impl From<&PeekMode> for u8 {
+    fn from(peek_mode: &PeekMode) -> Self {
+        match peek_mode {
             PeekMode::All => 0,
             PeekMode::Near => 1,
             PeekMode::Primary => 2,
@@ -281,7 +281,7 @@ impl Cache {
                 request.put_i32_le(peek_modes.len() as i32);
 
                 for peek_mode in peek_modes {
-                    request.put_u8(peek_mode.ordinal());
+                    request.put_u8(u8::from(peek_mode));
                 }
 
                 Ok(())
