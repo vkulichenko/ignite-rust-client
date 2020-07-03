@@ -124,9 +124,9 @@ mod tests {
     }
 
     // #[test] TODO: fix
-    fn test_put_get_char() {
-        test_put_get(Value::Char('a'), Value::Char('b'), Value::Char('1'));
-    }
+    // fn test_put_get_char() {
+    //     test_put_get(Value::Char('a'), Value::Char('b'), Value::Char('1'));
+    // }
 
     #[test]
     fn test_put_get_bool() {
@@ -255,6 +255,34 @@ mod tests {
         assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
         assert_eq!(cache.get_and_put_if_absent(&Value::I32(42), &Value::I32(2)), Ok(Some(Value::I32(1))));
         assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+    }
+
+    #[test]
+    fn test_replace() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+        assert_eq!(cache.replace(&Value::I32(42), &Value::I32(1)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(42), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.replace(&Value::I32(42), &Value::I32(2)), Ok(true));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(2))));
+    }
+
+    #[test]
+    fn test_replace_if_equals() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+        assert_eq!(cache.replace_if_equals(&Value::I32(42), &Value::I32(1), &Value::I32(2)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(42), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.replace_if_equals(&Value::I32(42), &Value::I32(1), &Value::I32(2)), Ok(true));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.replace_if_equals(&Value::I32(42), &Value::I32(0), &Value::I32(3)), Ok(false));
+        assert_eq!(cache.get(&Value::I32(42)), Ok(Some(Value::I32(2))));
     }
 
     fn cache() -> Cache {

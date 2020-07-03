@@ -159,6 +159,37 @@ impl Cache {
         )
     }
 
+    pub fn replace(&self, key: &Value, value: &Value) -> Result<bool> {
+        self.execute(
+            1009,
+            |request| {
+                key.write(request)?;
+                value.write(request)?;
+
+                Ok(())
+            },
+            |response| {
+                Ok(response.get_i8() != 0)
+            }
+        )
+    }
+
+    pub fn replace_if_equals(&self, key: &Value, old_value: &Value, new_value: &Value) -> Result<bool> {
+        self.execute(
+            1010,
+            |request| {
+                key.write(request)?;
+                old_value.write(request)?;
+                new_value.write(request)?;
+
+                Ok(())
+            },
+            |response| {
+                Ok(response.get_i8() != 0)
+            }
+        )
+    }
+
     pub fn clear(&self) -> Result<()> {
         self.execute(
             1013,
