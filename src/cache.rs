@@ -102,6 +102,63 @@ impl Cache {
         )
     }
 
+    pub fn get_and_put(&self, key: &Value, value: &Value) -> Result<Option<Value>> {
+        self.execute(
+            1005,
+            |request| {
+                key.write(request)?;
+                value.write(request)?;
+
+                Ok(())
+            },
+            |response| {
+                Value::read(response)
+            }
+        )
+    }
+
+    pub fn get_and_replace(&self, key: &Value, value: &Value) -> Result<Option<Value>> {
+        self.execute(
+            1006,
+            |request| {
+                key.write(request)?;
+                value.write(request)?;
+
+                Ok(())
+            },
+            |response| {
+                Value::read(response)
+            }
+        )
+    }
+
+    pub fn get_and_remove(&self, key: &Value) -> Result<Option<Value>> {
+        self.execute(
+            1007,
+            |request| {
+                key.write(request)
+            },
+            |response| {
+                Value::read(response)
+            }
+        )
+    }
+
+    pub fn get_and_put_if_absent(&self, key: &Value, value: &Value) -> Result<Option<Value>> {
+        self.execute(
+            1008,
+            |request| {
+                key.write(request)?;
+                value.write(request)?;
+
+                Ok(())
+            },
+            |response| {
+                Value::read(response)
+            }
+        )
+    }
+
     pub fn clear(&self) -> Result<()> {
         self.execute(
             1013,
