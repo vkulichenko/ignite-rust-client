@@ -8,6 +8,24 @@ use crate::binary::Value;
 use crate::error::{Result, ErrorKind, Error};
 use crate::network;
 
+pub enum PeekMode {
+    All,
+    Near,
+    Primary,
+    Backup,
+}
+
+impl PeekMode {
+    fn ordinal(&self) -> u8 {
+        match self {
+            PeekMode::All => 0,
+            PeekMode::Near => 1,
+            PeekMode::Primary => 2,
+            PeekMode::Backup => 3,
+        }
+    }
+}
+
 pub struct Cache {
     name: String,
     stream: Rc<RefCell<TcpStream>>,
@@ -251,6 +269,26 @@ impl Cache {
                 Ok(())
             },
             |_| { Ok(()) }
+        )
+    }
+
+    // TODO: remove_xxx
+
+    pub fn size(&self, peek_modes: &[PeekMode]) -> Result<i64> {
+        self.execute(
+            1020,
+            |request| {
+                request.put_i32_le(peek_modes.len() as i32);
+
+                for peek_mode in peek_modes {
+                    request.put_u8(peek_mode.ordinal());
+                }
+
+                Ok(())
+            },
+            |response| {
+                Ok(response.get_i64_le())
+            }
         )
     }
 }

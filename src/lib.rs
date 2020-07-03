@@ -91,7 +91,7 @@ impl Client {
 mod tests {
     use crate::{Configuration, Client};
     use crate::binary::Value;
-    use crate::cache::Cache;
+    use crate::cache::{Cache, PeekMode};
 
     #[test]
     fn test_put_get_i8() {
@@ -362,6 +362,26 @@ mod tests {
         assert_eq!(cache.get(&Value::I32(1)), Ok(None));
         assert_eq!(cache.get(&Value::I32(2)), Ok(None));
         assert_eq!(cache.get(&Value::I32(3)), Ok(Some(Value::I32(3))));
+    }
+
+    #[test]
+    fn test_size() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.size(&[]), Ok(0));
+        assert_eq!(cache.size(&[PeekMode::Primary]), Ok(0));
+        assert_eq!(cache.put(&Value::I32(1), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.size(&[]), Ok(1));
+        assert_eq!(cache.size(&[PeekMode::Primary]), Ok(1));
+        assert_eq!(cache.put(&Value::I32(2), &Value::I32(2)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.size(&[]), Ok(2));
+        assert_eq!(cache.size(&[PeekMode::Primary]), Ok(2));
     }
 
     fn cache() -> Cache {
