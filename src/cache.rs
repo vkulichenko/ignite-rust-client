@@ -190,6 +190,36 @@ impl Cache {
         )
     }
 
+    pub fn contains_key(&self, key: &Value) -> Result<bool> {
+        self.execute(
+            1011,
+            |request| {
+                key.write(request)
+            },
+            |response| {
+                Ok(response.get_i8() != 0)
+            }
+        )
+    }
+
+    pub fn contains_keys(&self, keys: &[Value]) -> Result<bool> {
+        self.execute(
+            1012,
+            |request| {
+                request.put_i32_le(keys.len() as i32);
+
+                for key in keys {
+                    key.write(request)?;
+                }
+
+                Ok(())
+            },
+            |response| {
+                Ok(response.get_i8() != 0)
+            }
+        )
+    }
+
     pub fn clear(&self) -> Result<()> {
         self.execute(
             1013,
