@@ -315,6 +315,55 @@ mod tests {
         assert_eq!(cache.contains_keys(keys.as_slice()), Ok(true));
     }
 
+    #[test]
+    fn test_clear_key() {
+        let cache = cache();
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.clear_key(&Value::I32(1)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.clear_key(&Value::I32(2)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(1), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(2), &Value::I32(2)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.clear_key(&Value::I32(1)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.clear_key(&Value::I32(2)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+    }
+
+    #[test]
+    fn test_clear_keys() {
+        let cache = cache();
+
+        let keys = vec![Value::I32(1), Value::I32(2)];
+
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(None));
+        assert_eq!(cache.clear_keys(keys.as_slice()), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(None));
+        assert_eq!(cache.put(&Value::I32(1), &Value::I32(1)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(2), &Value::I32(2)), Ok(()));
+        assert_eq!(cache.put(&Value::I32(3), &Value::I32(3)), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(Some(Value::I32(1))));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(Some(Value::I32(2))));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(Some(Value::I32(3))));
+        assert_eq!(cache.clear_keys(keys.as_slice()), Ok(()));
+        assert_eq!(cache.get(&Value::I32(1)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(2)), Ok(None));
+        assert_eq!(cache.get(&Value::I32(3)), Ok(Some(Value::I32(3))));
+    }
+
     fn cache() -> Cache {
         let config = Configuration::default()
             .username("ignite")

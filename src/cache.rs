@@ -227,6 +227,32 @@ impl Cache {
             |_| { Ok(()) }
         )
     }
+
+    pub fn clear_key(&self, key: &Value) -> Result<()> {
+        self.execute(
+            1014,
+            |request| {
+                key.write(request)
+            },
+            |_| { Ok(()) }
+        )
+    }
+
+    pub fn clear_keys(&self, keys: &[Value]) -> Result<()> {
+        self.execute(
+            1015,
+            |request| {
+                request.put_i32_le(keys.len() as i32);
+
+                for key in keys {
+                    key.write(request)?;
+                }
+
+                Ok(())
+            },
+            |_| { Ok(()) }
+        )
+    }
 }
 
 impl Cache {
