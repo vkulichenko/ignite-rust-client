@@ -1,12 +1,11 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::net::TcpStream;
 
 use bytes::{BytesMut, Bytes, BufMut, Buf};
 
 use crate::binary::Value;
-use crate::error::{Result, ErrorKind, Error};
-use crate::network;
+use crate::error::Result;
+use crate::network::Tcp;
 
 pub enum PeekMode {
     All,
@@ -28,10 +27,14 @@ impl From<&PeekMode> for u8 {
 
 pub struct Cache {
     name: String,
-    stream: Rc<RefCell<TcpStream>>,
+    tcp: Rc<RefCell<Tcp>>,
 }
 
 impl Cache {
+    pub(crate) fn new(name: String, tcp: Rc<RefCell<Tcp>>) -> Cache {
+        Cache { name, tcp }
+    }
+
     pub fn get(&self, key: &Value) -> Result<Option<Value>> {
         self.execute(
             1000,
@@ -87,7 +90,7 @@ impl Cache {
             |response| {
                 let len = response.get_i32_le() as usize;
 
-                let mut entries: Vec<(Value, Option<Value>)> = Vec::with_capacity(len);
+                let mut entries = Vec::with_capacity(len);
 
                 for _ in 0 .. len {
                     let key = Value::read(response)?;
@@ -340,43 +343,22 @@ impl Cache {
             }
         )
     }
-}
-
-impl Cache {
-    pub(crate) fn new(name: String, stream: Rc<RefCell<TcpStream>>) -> Cache {
-        Cache { name, stream }
-    }
 
     fn execute<R, F1, F2>(&self, operation_code: i16, request_writer: F1, response_reader: F2) -> Result<R>
         where
             F1: Fn(&mut BytesMut) -> Result<()>,
             F2: Fn(&mut Bytes) -> Result<R>,
     {
-        let mut stream = self.stream.borrow_mut();
+        self.tcp.borrow_mut().execute(
+            operation_code,
+            |request| {
+                request.put_i32_le(self.id());
+                request.put_i8(0); // Unused.
 
-        let mut request = BytesMut::with_capacity(1024);
-
-        request.put_i16_le(operation_code);
-        request.put_i64_le(0); // Request ID.
-        request.put_i32_le(self.id());
-        request.put_i8(0); // Unused.
-
-        request_writer(&mut request)?;
-
-        let mut response = network::send(&mut stream, &request)?;
-
-        assert_eq!(response.get_i64_le(), 0); // Request ID.
-
-        let status = response.get_i32_le();
-
-        if status == 0 {
-            response_reader(&mut response)
-        }
-        else {
-            let message = String::from_utf8(response.to_vec())?;
-
-            Err(Error::new(ErrorKind::Ignite(status), message))
-        }
+                request_writer(request)
+            },
+            response_reader
+        )
     }
 
     fn id(&self) -> i32 {

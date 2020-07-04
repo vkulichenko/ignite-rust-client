@@ -94,7 +94,11 @@ impl Value {
             9 => {
                 let len = bytes.get_i32_le() as usize;
 
-                Ok(Some(Value::String(String::from_utf8(bytes.slice(.. len).to_vec())?)))
+                let vec = bytes.slice(..len).to_vec();
+
+                bytes.advance(len);
+
+                Ok(Some(Value::String(String::from_utf8(vec)?)))
             },
             _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
         }

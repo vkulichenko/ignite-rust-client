@@ -8,12 +8,12 @@ use std::net::TcpStream;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use bytes::{BytesMut, BufMut, Buf};
-
 use configuration::Configuration;
-use binary::Value;
 use cache::Cache;
-use error::{Result, ErrorKind, Error};
+use error::Result;
+use crate::network::Tcp;
+use bytes::Buf;
+use crate::binary::Value;
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
@@ -25,63 +25,44 @@ pub struct Version {
 pub const VERSION: Version = Version { major: 1, minor: 1, patch: 0 };
 
 pub struct Client {
-    stream: Rc<RefCell<TcpStream>>,
+    tcp: Rc<RefCell<Tcp>>,
 }
 
 impl Client {
     pub fn start(config: Configuration) -> Result<Client> {
         let stream = TcpStream::connect(&config.address)?;
 
-        let stream = Rc::new(RefCell::new(stream));
+        let tcp = Rc::new(RefCell::new(Tcp { stream }));
 
-        let mut request = BytesMut::with_capacity(8);
+        tcp.borrow_mut().handshake(&config)?;
 
-        request.put_i8(1);
-        request.put_i16_le(VERSION.major);
-        request.put_i16_le(VERSION.minor);
-        request.put_i16_le(VERSION.patch);
-        request.put_i8(2);
+        Ok(Client { tcp })
+    }
 
-        if let Some(username) = config.username {
-            Value::String(username).write(&mut request)?;
+    pub fn cache_names(&self) -> Result<Vec<String>> {
+        self.tcp.borrow_mut().execute(
+            1050,
+            |_| { Ok(()) },
+            |response| {
+                let len = response.get_i32_le() as usize;
 
-            match config.password {
-                Some(password) => {
-                    Value::String(password).write(&mut request)?;
+                let mut names = Vec::with_capacity(len);
+
+                for _ in 0 .. len {
+                    let name = Value::read(response)?;
+
+                    if let Some(Value::String(name)) = name {
+                        names.push(name);
+                    }
                 }
-                None => {
-                    Value::write_null(&mut request)?;
-                }
+
+                Ok(names)
             }
-        }
-
-        let mut response = network::send(&mut stream.borrow_mut(), &request)?;
-
-        let success = response.get_u8();
-
-        if success == 1 {
-            Ok(Client { stream })
-        }
-        else {
-            let major = response.get_i16_le();
-            let minor = response.get_i16_le();
-            let patch = response.get_i16_le();
-
-            let kind = ErrorKind::Handshake {server_version: Version { major, minor, patch }, client_version: VERSION };
-
-            let message = Value::read(&mut response)?;
-
-            let message = match message {
-                Some(Value::String(message)) => message,
-                _ => "Handshake unexpected failure".to_string(),
-            };
-
-            Err(Error::new(kind, message))
-        }
+        )
     }
 
     pub fn cache(&self, name: &str) -> Cache {
-        Cache::new(name.to_string(), self.stream.clone())
+        Cache::new(name.to_string(), self.tcp.clone())
     }
 }
 
@@ -466,13 +447,33 @@ mod tests {
         assert_eq!(cache.size(&[PeekMode::Primary]), Ok(2));
     }
 
-    fn cache() -> Cache {
+    #[test]
+    fn test_cache_names() {
+        let client = client();
+
+        let mut expected_names = vec!["test-cache", "another-cache"];
+
+        expected_names.sort();
+
+        let mut names = client.cache_names()
+            .expect("Failed to execute cache_names() operation.");
+
+        names.sort();
+
+        assert_eq!(names, expected_names);
+    }
+
+    fn client() -> Client {
         let config = Configuration::default()
             .username("ignite")
             .password("ignite");
 
-        let client = Client::start(config)
-            .expect("Failed to create a client.");
+        Client::start(config)
+            .expect("Failed to create a client.")
+    }
+
+    fn cache() -> Cache {
+        let client = client();
 
         let cache = client.cache("test-cache");
 
