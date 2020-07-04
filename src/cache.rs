@@ -344,6 +344,18 @@ impl Cache {
         )
     }
 
+    pub fn destroy(&self) -> Result<()> {
+        self.tcp.borrow_mut().execute(
+            1056,
+            |request| {
+                request.put_i32_le(self.id());
+
+                Ok(())
+            },
+            |_| { Ok(()) }
+        )
+    }
+
     fn execute<R, F1, F2>(&self, operation_code: i16, request_writer: F1, response_reader: F2) -> Result<R>
         where
             F1: Fn(&mut BytesMut) -> Result<()>,

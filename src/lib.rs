@@ -61,6 +61,38 @@ impl Client {
         )
     }
 
+    pub fn create_cache(&self, name: &str) -> Result<Cache> {
+        let name = name.to_string();
+
+        self.tcp.borrow_mut().execute(
+            1051,
+            |request| {
+                Value::String(name.clone()).write(request)
+            },
+            |_| { Ok(()) }
+        )?;
+
+        Ok(Cache::new(name.clone(), self.tcp.clone()))
+    }
+
+    pub fn get_or_create_cache(&self, name: &str) -> Result<Cache> {
+        let name = name.to_string();
+
+        self.tcp.borrow_mut().execute(
+            1052,
+            |request| {
+                Value::String(name.clone()).write(request)
+            },
+            |_| { Ok(()) }
+        )?;
+
+        Ok(Cache::new(name.clone(), self.tcp.clone()))
+    }
+
+    pub fn destroy_cache(&self, name: &str) -> Result<()> {
+        self.cache(name).destroy()
+    }
+
     pub fn cache(&self, name: &str) -> Cache {
         Cache::new(name.to_string(), self.tcp.clone())
     }
@@ -461,6 +493,54 @@ mod tests {
         names.sort();
 
         assert_eq!(names, expected_names);
+    }
+
+    #[test]
+    fn test_create_cache() {
+        let client = client();
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        let cache = client.create_cache("new-cache")
+            .expect("Failed to create cache.");
+
+        assert!(client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        assert!(client.create_cache("new-cache").is_err());
+
+        cache.destroy()
+            .expect("Failed to destroy cache.");
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+    }
+
+    #[test]
+    fn test_get_or_create_cache() {
+        let client = client();
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        let cache = client.get_or_create_cache("new-cache")
+            .expect("Failed to create cache.");
+
+        assert!(client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        cache.destroy()
+            .expect("Failed to destroy cache.");
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
     }
 
     fn client() -> Client {
