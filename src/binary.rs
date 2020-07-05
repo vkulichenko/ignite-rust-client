@@ -1,4 +1,5 @@
 use bytes::{BufMut, Buf, BytesMut, Bytes};
+use uuid::Uuid;
 
 use crate::error::{Result, ErrorKind, Error};
 
@@ -13,6 +14,7 @@ pub enum Value {
     Char(char),
     Bool(bool),
     String(String),
+    Uuid(Uuid),
 }
 
 impl Value {
@@ -64,6 +66,24 @@ impl Value {
                 bytes.put_i32_le(v.len() as i32);
                 bytes.put_slice(v);
             }
+            Value::Uuid(v) => {
+                let v = v.as_bytes();
+
+                let mut msb: i64 = 0;
+                let mut lsb: i64 = 0;
+
+                for i in 0 .. 8 {
+                    msb = (msb << 8) | (v[i] as i64 & 0xFF);
+                }
+
+                for i in 8 .. 16 {
+                    lsb = (lsb << 8) | (v[i] as i64 & 0xFF);
+                }
+
+                bytes.put_i8(10);
+                bytes.put_i64_le(msb);
+                bytes.put_i64_le(lsb);
+            }
         }
 
         result
@@ -100,6 +120,26 @@ impl Value {
 
                 Ok(Some(Value::String(String::from_utf8(vec)?)))
             },
+            10 => {
+                let mut msb = bytes.get_i64_le();
+                let mut lsb = bytes.get_i64_le();
+
+                let mut arr = [0u8; 16];
+
+                for i in 0 .. 8 {
+                    arr[15 - i] = (lsb & 0xFF) as u8;
+
+                    lsb = lsb >> 8;
+                }
+
+                for i in 8 .. 16 {
+                    arr[15 - i] = (msb & 0xFF) as u8;
+
+                    msb = msb >> 8;
+                }
+
+                Ok(Some(Value::Uuid(Uuid::from_bytes(arr))))
+            }
             _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
         }
     }

@@ -105,6 +105,7 @@ mod tests {
     use crate::{Configuration, Client};
     use crate::binary::Value;
     use crate::cache::{Cache, PeekMode};
+    use uuid::Uuid;
 
     #[test]
     fn test_put_get_i8() {
@@ -149,6 +150,11 @@ mod tests {
     #[test]
     fn test_put_get_string() {
         test_put_get(Value::String("42".to_string()), Value::String("43".to_string()), Value::String("1".to_string()));
+    }
+
+    #[test]
+    fn test_put_get_uuid() {
+        test_put_get(Value::Uuid(Uuid::from_u128(1234)), Value::Uuid(Uuid::from_u128(4321)), Value::Uuid(Uuid::from_u128(1234)));
     }
 
     fn test_put_get(existent_key: Value, non_existent_key: Value, value: Value) {
