@@ -16,7 +16,48 @@ pub enum Value {
 }
 
 impl Value {
-    pub(crate) fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+    pub(crate) fn read(bytes: &mut Bytes) -> Result<Option<Value>> {
+        let type_code = bytes.get_i8();
+
+        match type_code {
+            101 => Ok(None),
+            1 => Ok(Some(Value::I8(bytes.get_i8()))),
+            2 => Ok(Some(Value::I16(bytes.get_i16_le()))),
+            3 => Ok(Some(Value::I32(bytes.get_i32_le()))),
+            4 => Ok(Some(Value::I64(bytes.get_i64_le()))),
+            5 => Ok(Some(Value::F32(bytes.get_f32_le()))),
+            6 => Ok(Some(Value::F64(bytes.get_f64_le()))),
+            7 => {
+                let value = bytes.get_u16_le();
+
+                if let Some(char) = std::char::from_u32(value as u32) {
+                    Ok(Some(Value::Char(char)))
+                }
+                else {
+                    Err(Error::new(ErrorKind::Encoding, format!("Failed to convert to char: {}", value)))
+                }
+            },
+            8 => Ok(Some(Value::Bool(bytes.get_u8() != 0))),
+            9 => {
+                let len = bytes.get_i32_le() as usize;
+
+                let vec = bytes.slice(..len).to_vec();
+
+                bytes.advance(len);
+
+                Ok(Some(Value::String(String::from_utf8(vec)?)))
+            },
+            _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
+        }
+    }
+}
+
+pub(crate) trait BinaryWrite {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()>;
+}
+
+impl BinaryWrite for Value {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
         let mut result = Ok(());
 
         match self {
@@ -58,55 +99,39 @@ impl Value {
                 bytes.put_u8(if *v { 1 } else { 0 });
             }
             Value::String(v) => {
-                let v = v.as_bytes();
-
-                bytes.put_i8(9);
-                bytes.put_i32_le(v.len() as i32);
-                bytes.put_slice(v);
+                result = v.write(bytes);
             }
         }
 
         result
     }
+}
 
-    pub(crate) fn read(bytes: &mut Bytes) -> Result<Option<Value>> {
-        let type_code = bytes.get_i8();
+impl BinaryWrite for String {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        let arr = self.as_bytes();
 
-        match type_code {
-            101 => Ok(None),
-            1 => Ok(Some(Value::I8(bytes.get_i8()))),
-            2 => Ok(Some(Value::I16(bytes.get_i16_le()))),
-            3 => Ok(Some(Value::I32(bytes.get_i32_le()))),
-            4 => Ok(Some(Value::I64(bytes.get_i64_le()))),
-            5 => Ok(Some(Value::F32(bytes.get_f32_le()))),
-            6 => Ok(Some(Value::F64(bytes.get_f64_le()))),
-            7 => {
-                let value = bytes.get_u16_le();
-
-                if let Some(char) = std::char::from_u32(value as u32) {
-                    Ok(Some(Value::Char(char)))
-                }
-                else {
-                    Err(Error::new(ErrorKind::Encoding, format!("Failed to convert to char: {}", value)))
-                }
-            },
-            8 => Ok(Some(Value::Bool(bytes.get_u8() != 0))),
-            9 => {
-                let len = bytes.get_i32_le() as usize;
-
-                let vec = bytes.slice(..len).to_vec();
-
-                bytes.advance(len);
-
-                Ok(Some(Value::String(String::from_utf8(vec)?)))
-            },
-            _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
-        }
-    }
-
-    pub(crate) fn write_null(bytes: &mut BytesMut) -> Result<()> {
-        bytes.put_i8(101);
+        bytes.put_i8(9);
+        bytes.put_i32_le(arr.len() as i32);
+        bytes.put_slice(arr);
 
         Ok(())
+    }
+}
+
+impl<T> BinaryWrite for Option<T>
+    where T: BinaryWrite
+{
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        match self {
+            Some(value) => {
+                value.write(bytes)
+            },
+            None => {
+                bytes.put_i8(101);
+
+                Ok(())
+            },
+        }
     }
 }

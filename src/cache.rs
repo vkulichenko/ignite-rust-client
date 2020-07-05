@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use bytes::{BytesMut, Bytes, BufMut, Buf};
 
-use crate::binary::Value;
+use crate::binary::{Value, BinaryWrite};
 use crate::error::Result;
 use crate::network::Tcp;
 
@@ -15,8 +15,8 @@ pub enum PeekMode {
 }
 
 impl From<&PeekMode> for u8 {
-    fn from(peek_mode: &PeekMode) -> Self {
-        match peek_mode {
+    fn from(mode: &PeekMode) -> Self {
+        match mode {
             PeekMode::All => 0,
             PeekMode::Near => 1,
             PeekMode::Primary => 2,
@@ -373,6 +373,7 @@ impl Cache {
         )
     }
 
+    // TODO: Fails with overflow for some names
     fn id(&self) -> i32 {
         let mut hash = 0i64;
 

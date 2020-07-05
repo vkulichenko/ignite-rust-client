@@ -5,7 +5,7 @@ use bytes::{BytesMut, Bytes, Buf, BufMut};
 
 use crate::error::{Result, ErrorKind, Error};
 use crate::{VERSION, Version};
-use crate::binary::Value;
+use crate::binary::{Value, BinaryWrite};
 use crate::configuration::Configuration;
 
 pub(crate) struct Tcp {
@@ -23,16 +23,9 @@ impl Tcp {
         request.put_i8(2);
 
         if let Some(username) = config.username.clone() {
-            Value::String(username).write(&mut request)?;
+            username.write(&mut request)?;
 
-            match config.password.clone() {
-                Some(password) => {
-                    Value::String(password).write(&mut request)?;
-                }
-                None => {
-                    Value::write_null(&mut request)?;
-                }
-            }
+            config.password.clone().write(&mut request);
         }
 
         let mut response = self.send(&request)?;

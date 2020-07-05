@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate num_derive;
+
 mod configuration;
 mod binary;
 mod cache;
@@ -8,12 +11,13 @@ use std::net::TcpStream;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use bytes::Buf;
+
 use configuration::Configuration;
 use cache::Cache;
 use error::Result;
-use crate::network::Tcp;
-use bytes::Buf;
-use crate::binary::Value;
+use network::Tcp;
+use binary::{Value, BinaryWrite};
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
