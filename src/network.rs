@@ -25,7 +25,7 @@ impl Tcp {
         if let Some(username) = config.username.clone() {
             username.write(&mut request)?;
 
-            config.password.clone().write(&mut request);
+            config.password.clone().write(&mut request)?;
         }
 
         let mut response = self.send(&request)?;
