@@ -246,6 +246,10 @@ pub(crate) fn read_bool_with_type_check(bytes: &mut Bytes) -> Result<bool> {
     read_with_type_check(bytes, 8, |bytes| { Ok(read_bool(bytes)) })
 }
 
+pub(crate) fn read_string_with_type_check(bytes: &mut Bytes) -> Result<String> {
+    read_with_type_check(bytes, 9, |bytes| { Ok(read_string(bytes)?) })
+}
+
 pub(crate) fn read_string_optional_with_type_check(bytes: &mut Bytes) -> Result<Option<String>> {
     read_optional_with_type_check(bytes, 9, |bytes| { Ok(read_string(bytes)?) })
 }

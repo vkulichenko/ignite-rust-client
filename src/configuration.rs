@@ -117,6 +117,27 @@ pub struct CacheKeyConfiguration {
     pub affinity_key_field_name: String,
 }
 
+impl CacheKeyConfiguration {
+    fn read(bytes: &mut Bytes) -> Result<CacheKeyConfiguration> {
+        Ok(CacheKeyConfiguration {
+            type_name: binary::read_string_with_type_check(bytes)?,
+            affinity_key_field_name: binary::read_string_with_type_check(bytes)?,
+        })
+    }
+
+    fn read_multiple(bytes: &mut Bytes) -> Result<Vec<CacheKeyConfiguration>> {
+        let len = bytes.get_i32_le() as usize;
+
+        let mut vec = Vec::with_capacity(len);
+
+        for _ in 0 .. len {
+            vec.push(CacheKeyConfiguration::read(bytes)?);
+        }
+
+        Ok(vec)
+    }
+}
+
 pub struct QueryEntity {
     pub key_type_name: String,
     pub value_type_name: String,
@@ -124,7 +145,50 @@ pub struct QueryEntity {
     pub key_field_name: String,
     pub value_field_name: String,
     pub fields: Vec<QueryField>,
+    pub aliases: Vec<(String, String)>,
     pub indexes: Vec<QueryIndex>,
+}
+
+impl QueryEntity {
+    fn read(bytes: &mut Bytes) -> Result<QueryEntity> {
+        fn read_aliases(bytes: &mut Bytes) -> Result<Vec<(String, String)>> {
+            let len = bytes.get_i32_le() as usize;
+
+            let mut vec = Vec::with_capacity(len);
+
+            for _ in 0 .. len {
+                let name = binary::read_string_with_type_check(bytes)?;
+                let alias = binary::read_string_with_type_check(bytes)?;
+
+                vec.push((name, alias));
+            }
+
+            Ok(vec)
+        }
+
+        Ok(QueryEntity {
+            key_type_name: binary::read_string_with_type_check(bytes)?,
+            value_type_name: binary::read_string_with_type_check(bytes)?,
+            table_name: binary::read_string_with_type_check(bytes)?,
+            key_field_name: binary::read_string_with_type_check(bytes)?,
+            value_field_name: binary::read_string_with_type_check(bytes)?,
+            fields: QueryField::read_multiple(bytes)?,
+            aliases: read_aliases(bytes)?,
+            indexes: QueryIndex::read_multiple(bytes)?,
+        })
+    }
+
+    fn read_multiple(bytes: &mut Bytes) -> Result<Vec<QueryEntity>> {
+        let len = bytes.get_i32_le() as usize;
+
+        let mut vec = Vec::with_capacity(len);
+
+        for _ in 0 .. len {
+            vec.push(QueryEntity::read(bytes)?);
+        }
+
+        Ok(vec)
+    }
 }
 
 pub struct QueryField {
@@ -134,10 +198,45 @@ pub struct QueryField {
     pub not_null: bool,
 }
 
+impl QueryField {
+    fn read(bytes: &mut Bytes) -> Result<QueryField> {
+        Ok(QueryField {
+            name: binary::read_string_with_type_check(bytes)?,
+            type_name: binary::read_string_with_type_check(bytes)?,
+            key_field: binary::read_bool_with_type_check(bytes)?,
+            not_null: binary::read_bool_with_type_check(bytes)?,
+        })
+    }
+
+    fn read_multiple(bytes: &mut Bytes) -> Result<Vec<QueryField>> {
+        let len = bytes.get_i32_le() as usize;
+
+        let mut vec = Vec::with_capacity(len);
+
+        for _ in 0 .. len {
+            vec.push(QueryField::read(bytes)?);
+        }
+
+        Ok(vec)
+    }
+}
+
+#[derive(FromPrimitive, ToPrimitive)]
 pub enum IndexType {
     Sorted = 0,
     FullText = 1,
     Geospatial = 2,
+}
+
+impl IndexType {
+    fn read(bytes: &mut Bytes) -> Result<IndexType> {
+        let mode: Option<IndexType> = FromPrimitive::from_i32(binary::read_i32_with_type_check(bytes)?);
+
+        match mode {
+            Some(mode) => Ok(mode),
+            None => Err(Error::new(ErrorKind::Serde, "".to_string())),
+        }
+    }
 }
 
 pub struct QueryIndex {
@@ -145,6 +244,44 @@ pub struct QueryIndex {
     pub index_type: IndexType,
     pub inline_size: i32,
     pub fields: Vec<(String, bool)>,
+}
+
+impl QueryIndex {
+    fn read(bytes: &mut Bytes) -> Result<QueryIndex> {
+        fn read_fields(bytes: &mut Bytes) -> Result<Vec<(String, bool)>> {
+            let len = bytes.get_i32_le() as usize;
+
+            let mut vec = Vec::with_capacity(len);
+
+            for _ in 0 .. len {
+                let name = binary::read_string_with_type_check(bytes)?;
+                let desc = binary::read_bool_with_type_check(bytes)?;
+
+                vec.push((name, desc));
+            }
+
+            Ok(vec)
+        }
+
+        Ok(QueryIndex {
+            index_name: binary::read_string_with_type_check(bytes)?,
+            index_type: IndexType::read(bytes)?,
+            inline_size: binary::read_i32_with_type_check(bytes)?,
+            fields: read_fields(bytes)?,
+        })
+    }
+
+    fn read_multiple(bytes: &mut Bytes) -> Result<Vec<QueryIndex>> {
+        let len = bytes.get_i32_le() as usize;
+
+        let mut vec = Vec::with_capacity(len);
+
+        for _ in 0 .. len {
+            vec.push(QueryIndex::read(bytes)?);
+        }
+
+        Ok(vec)
+    }
 }
 
 pub struct CacheConfiguration {
@@ -177,7 +314,6 @@ pub struct CacheConfiguration {
     pub write_synchronization_mode: WriteSynchronizationMode,
     pub cache_key_configurations: Vec<CacheKeyConfiguration>,
     pub query_entities: Vec<QueryEntity>,
-    pub aliases: Vec<(String, String)>,
 }
 
 impl CacheConfiguration {
@@ -212,12 +348,8 @@ impl CacheConfiguration {
             sql_index_inline_max_size: binary::read_i32_with_type_check(bytes)?,
             sql_schema: binary::read_string_optional_with_type_check(bytes)?,
             write_synchronization_mode: WriteSynchronizationMode::read(bytes)?,
-            // TODO
-            cache_key_configurations: vec![],
-            // TODO
-            query_entities: vec![],
-            // TODO
-            aliases: vec![],
+            cache_key_configurations: CacheKeyConfiguration::read_multiple(bytes)?,
+            query_entities: QueryEntity::read_multiple(bytes)?,
         })
     }
 }
