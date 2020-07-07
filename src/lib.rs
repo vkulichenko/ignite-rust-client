@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate num_derive;
+
 mod configuration;
 mod binary;
 mod cache;
@@ -8,12 +11,13 @@ use std::net::TcpStream;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use bytes::Buf;
+
 use configuration::Configuration;
 use cache::Cache;
 use error::Result;
-use crate::network::Tcp;
-use bytes::Buf;
-use crate::binary::Value;
+use network::Tcp;
+use binary::{Value, BinaryWrite};
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
@@ -67,7 +71,7 @@ impl Client {
         self.tcp.borrow_mut().execute(
             1051,
             |request| {
-                Value::String(name.clone()).write(request)
+                name.clone().write(request)
             },
             |_| { Ok(()) }
         )?;
@@ -81,7 +85,7 @@ impl Client {
         self.tcp.borrow_mut().execute(
             1052,
             |request| {
-                Value::String(name.clone()).write(request)
+                name.clone().write(request)
             },
             |_| { Ok(()) }
         )?;
@@ -547,6 +551,18 @@ mod tests {
         assert!(!client.cache_names()
             .expect("Failed to get cache names.")
             .contains(&"new-cache".to_string()));
+    }
+
+    #[test]
+    fn test_get_configuration() {
+        let cache = cache();
+
+        let config = cache.configuration()
+            .expect("Failed to get cache configuration.");
+
+        assert_eq!(config.name, Some("test-cache".to_string()));
+
+        // TODO: Check other parameters.
     }
 
     fn client() -> Client {

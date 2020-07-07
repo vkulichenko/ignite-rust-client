@@ -5,7 +5,7 @@ pub(crate) type Result<T> = core::result::Result<T, Error>;
 #[derive(PartialEq, Debug)]
 pub enum ErrorKind {
     Network,
-    Encoding,
+    Serde,
     Handshake { server_version: Version, client_version: Version },
     Ignite(i32),
 }
@@ -30,6 +30,6 @@ impl From<std::io::Error> for Error {
 
 impl From<std::string::FromUtf8Error> for Error {
     fn from(error: std::string::FromUtf8Error) -> Self {
-        Error { kind: ErrorKind::Encoding, message: error.to_string() }
+        Error { kind: ErrorKind::Serde, message: error.to_string() }
     }
 }
