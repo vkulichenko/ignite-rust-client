@@ -47,7 +47,7 @@ pub enum CacheMode {
 
 impl CacheMode {
     fn read(bytes: &mut Bytes) -> Result<CacheMode> {
-        let mode: Option<CacheMode> = FromPrimitive::from_i32(binary::read_i32_with_type_check(bytes)?);
+        let mode: Option<CacheMode> = FromPrimitive::from_i32(binary::read(bytes)?);
 
         match mode {
             Some(mode) => Ok(mode),
@@ -67,7 +67,7 @@ pub enum PartitionLossPolicy {
 
 impl PartitionLossPolicy {
     fn read(bytes: &mut Bytes) -> Result<PartitionLossPolicy> {
-        let mode: Option<PartitionLossPolicy> = FromPrimitive::from_i32(binary::read_i32_with_type_check(bytes)?);
+        let mode: Option<PartitionLossPolicy> = FromPrimitive::from_i32(binary::read(bytes)?);
 
         match mode {
             Some(mode) => Ok(mode),
@@ -85,7 +85,7 @@ pub enum RebalanceMode {
 
 impl RebalanceMode {
     fn read(bytes: &mut Bytes) -> Result<RebalanceMode> {
-        let mode: Option<RebalanceMode> = FromPrimitive::from_i32(binary::read_i32_with_type_check(bytes)?);
+        let mode: Option<RebalanceMode> = FromPrimitive::from_i32(binary::read(bytes)?);
 
         match mode {
             Some(mode) => Ok(mode),
@@ -103,7 +103,7 @@ pub enum WriteSynchronizationMode {
 
 impl WriteSynchronizationMode {
     fn read(bytes: &mut Bytes) -> Result<WriteSynchronizationMode> {
-        let mode: Option<WriteSynchronizationMode> = FromPrimitive::from_i32(binary::read_i32_with_type_check(bytes)?);
+        let mode: Option<WriteSynchronizationMode> = FromPrimitive::from_i32(binary::read(bytes)?);
 
         match mode {
             Some(mode) => Ok(mode),
@@ -120,8 +120,8 @@ pub struct CacheKeyConfiguration {
 impl CacheKeyConfiguration {
     fn read(bytes: &mut Bytes) -> Result<CacheKeyConfiguration> {
         Ok(CacheKeyConfiguration {
-            type_name: binary::read_string_with_type_check(bytes)?,
-            affinity_key_field_name: binary::read_string_with_type_check(bytes)?,
+            type_name: binary::read(bytes)?,
+            affinity_key_field_name: binary::read(bytes)?,
         })
     }
 
@@ -157,8 +157,8 @@ impl QueryEntity {
             let mut vec = Vec::with_capacity(len);
 
             for _ in 0 .. len {
-                let name = binary::read_string_with_type_check(bytes)?;
-                let alias = binary::read_string_with_type_check(bytes)?;
+                let name = binary::read(bytes)?;
+                let alias = binary::read(bytes)?;
 
                 vec.push((name, alias));
             }
@@ -167,11 +167,11 @@ impl QueryEntity {
         }
 
         Ok(QueryEntity {
-            key_type_name: binary::read_string_with_type_check(bytes)?,
-            value_type_name: binary::read_string_with_type_check(bytes)?,
-            table_name: binary::read_string_with_type_check(bytes)?,
-            key_field_name: binary::read_string_with_type_check(bytes)?,
-            value_field_name: binary::read_string_with_type_check(bytes)?,
+            key_type_name: binary::read(bytes)?,
+            value_type_name: binary::read(bytes)?,
+            table_name: binary::read(bytes)?,
+            key_field_name: binary::read(bytes)?,
+            value_field_name: binary::read(bytes)?,
             fields: QueryField::read_multiple(bytes)?,
             aliases: read_aliases(bytes)?,
             indexes: QueryIndex::read_multiple(bytes)?,
@@ -201,10 +201,10 @@ pub struct QueryField {
 impl QueryField {
     fn read(bytes: &mut Bytes) -> Result<QueryField> {
         Ok(QueryField {
-            name: binary::read_string_with_type_check(bytes)?,
-            type_name: binary::read_string_with_type_check(bytes)?,
-            key_field: binary::read_bool_with_type_check(bytes)?,
-            not_null: binary::read_bool_with_type_check(bytes)?,
+            name: binary::read(bytes)?,
+            type_name: binary::read(bytes)?,
+            key_field: binary::read(bytes)?,
+            not_null: binary::read(bytes)?,
         })
     }
 
@@ -230,7 +230,7 @@ pub enum IndexType {
 
 impl IndexType {
     fn read(bytes: &mut Bytes) -> Result<IndexType> {
-        let mode: Option<IndexType> = FromPrimitive::from_i32(binary::read_i32_with_type_check(bytes)?);
+        let mode: Option<IndexType> = FromPrimitive::from_i32(binary::read(bytes)?);
 
         match mode {
             Some(mode) => Ok(mode),
@@ -254,8 +254,8 @@ impl QueryIndex {
             let mut vec = Vec::with_capacity(len);
 
             for _ in 0 .. len {
-                let name = binary::read_string_with_type_check(bytes)?;
-                let desc = binary::read_bool_with_type_check(bytes)?;
+                let name = binary::read(bytes)?;
+                let desc = binary::read(bytes)?;
 
                 vec.push((name, desc));
             }
@@ -264,9 +264,9 @@ impl QueryIndex {
         }
 
         Ok(QueryIndex {
-            index_name: binary::read_string_with_type_check(bytes)?,
+            index_name: binary::read(bytes)?,
             index_type: IndexType::read(bytes)?,
-            inline_size: binary::read_i32_with_type_check(bytes)?,
+            inline_size: binary::read(bytes)?,
             fields: read_fields(bytes)?,
         })
     }
@@ -321,32 +321,32 @@ impl CacheConfiguration {
         bytes.advance(4); // Ignore length.
 
         Ok(CacheConfiguration {
-            backups: binary::read_i32_with_type_check(bytes)?,
+            backups: binary::read(bytes)?,
             mode: CacheMode::read(bytes)?,
-            copy_on_read: binary::read_bool_with_type_check(bytes)?,
-            data_region_name: binary::read_string_optional_with_type_check(bytes)?,
-            eager_ttl: binary::read_bool_with_type_check(bytes)?,
-            statistics_enabled: binary::read_bool_with_type_check(bytes)?,
-            group_name: binary::read_string_optional_with_type_check(bytes)?,
-            invalidate: binary::read_bool_with_type_check(bytes)?,
-            default_lock_timeout: binary::read_i64_with_type_check(bytes)?,
-            max_query_iterators: binary::read_i32_with_type_check(bytes)?,
-            name: binary::read_string_optional_with_type_check(bytes)?,
-            on_heap_cache_enabled: binary::read_bool_with_type_check(bytes)?,
+            copy_on_read: binary::read(bytes)?,
+            data_region_name: binary::read_optional(bytes)?,
+            eager_ttl: binary::read(bytes)?,
+            statistics_enabled: binary::read(bytes)?,
+            group_name: binary::read_optional(bytes)?,
+            invalidate: binary::read(bytes)?,
+            default_lock_timeout: binary::read(bytes)?,
+            max_query_iterators: binary::read(bytes)?,
+            name: binary::read_optional(bytes)?,
+            on_heap_cache_enabled: binary::read(bytes)?,
             partition_loss_policy: PartitionLossPolicy::read(bytes)?,
-            query_detail_metrics_size: binary::read_i32_with_type_check(bytes)?,
-            query_parallelism: binary::read_i32_with_type_check(bytes)?,
-            read_from_backup: binary::read_bool_with_type_check(bytes)?,
-            rebalance_batch_size: binary::read_i32_with_type_check(bytes)?,
-            rebalance_batch_prefetch_count: binary::read_i64_with_type_check(bytes)?,
-            rebalance_delay: binary::read_i64_with_type_check(bytes)?,
+            query_detail_metrics_size: binary::read(bytes)?,
+            query_parallelism: binary::read(bytes)?,
+            read_from_backup: binary::read(bytes)?,
+            rebalance_batch_size: binary::read(bytes)?,
+            rebalance_batch_prefetch_count: binary::read(bytes)?,
+            rebalance_delay: binary::read(bytes)?,
             rebalance_mode: RebalanceMode::read(bytes)?,
-            rebalance_order: binary::read_i32_with_type_check(bytes)?,
-            rebalance_throttle: binary::read_i64_with_type_check(bytes)?,
-            rebalance_timeout: binary::read_i64_with_type_check(bytes)?,
-            sql_escape_all: binary::read_bool_with_type_check(bytes)?,
-            sql_index_inline_max_size: binary::read_i32_with_type_check(bytes)?,
-            sql_schema: binary::read_string_optional_with_type_check(bytes)?,
+            rebalance_order: binary::read(bytes)?,
+            rebalance_throttle: binary::read(bytes)?,
+            rebalance_timeout: binary::read(bytes)?,
+            sql_escape_all: binary::read(bytes)?,
+            sql_index_inline_max_size: binary::read(bytes)?,
+            sql_schema: binary::read_optional(bytes)?,
             write_synchronization_mode: WriteSynchronizationMode::read(bytes)?,
             cache_key_configurations: CacheKeyConfiguration::read_multiple(bytes)?,
             query_entities: QueryEntity::read_multiple(bytes)?,

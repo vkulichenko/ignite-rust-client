@@ -141,10 +141,10 @@ mod tests {
         test_put_get(Value::F32(42.42), Value::F32(43.43), Value::F32(1.1));
     }
 
-    // #[test] TODO: fix
-    // fn test_put_get_char() {
-    //     test_put_get(Value::Char('a'), Value::Char('b'), Value::Char('1'));
-    // }
+    #[test]
+    fn test_put_get_char() {
+        test_put_get(Value::Char('a'), Value::Char('b'), Value::Char('1'));
+    }
 
     #[test]
     fn test_put_get_bool() {

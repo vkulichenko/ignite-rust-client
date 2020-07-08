@@ -23,16 +23,16 @@ impl Value {
 
         match type_code {
             101 => Ok(None),
-            1 => Ok(Some(Value::I8(bytes.get_i8()))),
-            2 => Ok(Some(Value::I16(bytes.get_i16_le()))),
-            3 => Ok(Some(Value::I32(bytes.get_i32_le()))),
-            4 => Ok(Some(Value::I64(bytes.get_i64_le()))),
-            5 => Ok(Some(Value::F32(bytes.get_f32_le()))),
-            6 => Ok(Some(Value::F64(bytes.get_f64_le()))),
-            7 => Ok(Some(Value::Char(read_char(bytes)?))),
-            8 => Ok(Some(Value::Bool(read_bool(bytes)))),
-            9 => Ok(Some(Value::String(read_string(bytes)?))),
-            10 => Ok(Some(Value::Uuid(read_uuid(bytes)))),
+            i8::TYPE_CODE => Ok(Some(Value::I8(i8::read(bytes)?))),
+            i16::TYPE_CODE => Ok(Some(Value::I16(i16::read(bytes)?))),
+            i32::TYPE_CODE => Ok(Some(Value::I32(i32::read(bytes)?))),
+            i64::TYPE_CODE => Ok(Some(Value::I64(i64::read(bytes)?))),
+            f32::TYPE_CODE => Ok(Some(Value::F32(f32::read(bytes)?))),
+            f64::TYPE_CODE => Ok(Some(Value::F64(f64::read(bytes)?))),
+            char::TYPE_CODE => Ok(Some(Value::Char(char::read(bytes)?))),
+            bool::TYPE_CODE => Ok(Some(Value::Bool(bool::read(bytes)?))),
+            String::TYPE_CODE => Ok(Some(Value::String(String::read(bytes)?))),
+            Uuid::TYPE_CODE => Ok(Some(Value::Uuid(Uuid::read(bytes)?))),
             _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
         }
     }
@@ -188,94 +188,156 @@ impl<T> BinaryWrite for Option<T>
     }
 }
 
-fn read_char(bytes: &mut Bytes) -> Result<char> {
-    let value = bytes.get_u16_le();
+pub(crate) trait BinaryRead: Sized {
+    const TYPE_CODE: i8;
 
-    if let Some(char) = std::char::from_u32(value as u32) {
-        Ok(char)
-    }
-    else {
-        Err(Error::new(ErrorKind::Serde, format!("Failed to convert to char: {}", value)))
+    fn read(bytes: &mut Bytes) -> Result<Self>;
+}
+
+impl BinaryRead for i8 {
+    const TYPE_CODE: i8 = 1;
+
+    fn read(bytes: &mut Bytes) -> Result<i8> {
+        Ok(bytes.get_i8())
     }
 }
 
-fn read_bool(bytes: &mut Bytes) -> bool {
-    bytes.get_u8() != 0
+impl BinaryRead for i16 {
+    const TYPE_CODE: i8 = 2;
+
+    fn read(bytes: &mut Bytes) -> Result<i16> {
+        Ok(bytes.get_i16_le())
+    }
 }
 
-fn read_string(bytes: &mut Bytes) -> Result<String> {
+impl BinaryRead for i32 {
+    const TYPE_CODE: i8 = 3;
+
+    fn read(bytes: &mut Bytes) -> Result<i32> {
+        Ok(bytes.get_i32_le())
+    }
+}
+
+impl BinaryRead for i64 {
+    const TYPE_CODE: i8 = 4;
+
+    fn read(bytes: &mut Bytes) -> Result<i64> {
+        Ok(bytes.get_i64_le())
+    }
+}
+
+impl BinaryRead for f32 {
+    const TYPE_CODE: i8 = 5;
+
+    fn read(bytes: &mut Bytes) -> Result<f32> {
+        Ok(bytes.get_f32_le())
+    }
+}
+
+impl BinaryRead for f64 {
+    const TYPE_CODE: i8 = 6;
+
+    fn read(bytes: &mut Bytes) -> Result<f64> {
+        Ok(bytes.get_f64_le())
+    }
+}
+
+impl BinaryRead for char {
+    const TYPE_CODE: i8 = 7;
+
+    fn read(bytes: &mut Bytes) -> Result<char> {
+        let value = bytes.get_u16_le();
+
+        if let Some(char) = std::char::from_u32(value as u32) {
+            Ok(char)
+        }
+        else {
+            Err(Error::new(ErrorKind::Serde, format!("Failed to convert to char: {}", value)))
+        }
+    }
+}
+
+impl BinaryRead for bool {
+    const TYPE_CODE: i8 = 8;
+
+    fn read(bytes: &mut Bytes) -> Result<bool> {
+        Ok(bytes.get_u8() != 0)
+    }
+}
+
+impl BinaryRead for String {
+    const TYPE_CODE: i8 = 9;
+
+    fn read(bytes: &mut Bytes) -> Result<String> {
+        let len = bytes.get_i32_le() as usize;
+
+        let vec = bytes.slice(..len).to_vec();
+
+        bytes.advance(len);
+
+        Ok(String::from_utf8(vec)?)
+    }
+}
+
+impl BinaryRead for Uuid {
+    const TYPE_CODE: i8 = 10;
+
+    fn read(bytes: &mut Bytes) -> Result<Uuid> {
+        let mut msb = bytes.get_i64_le();
+        let mut lsb = bytes.get_i64_le();
+
+        let mut arr = [0u8; 16];
+
+        for i in 0 .. 8 {
+            arr[15 - i] = (lsb & 0xFF) as u8;
+
+            lsb = lsb >> 8;
+        }
+
+        for i in 8 .. 16 {
+            arr[15 - i] = (msb & 0xFF) as u8;
+
+            msb = msb >> 8;
+        }
+
+        Ok(Uuid::from_bytes(arr))
+    }
+}
+
+pub(crate) fn read<T>(bytes: &mut Bytes) -> Result<T>
+    where T: BinaryRead
+{
+    let type_code = bytes.get_i8();
+
+    match type_code {
+        type_code if type_code == T::TYPE_CODE => Ok(T::read(bytes)?),
+        101 => Err(Error::new(ErrorKind::Serde, "NULL is not expected.".to_string())),
+        _ => Err(Error::new(ErrorKind::Serde, format!("Unexpected type code: {}", type_code))),
+    }
+}
+
+pub(crate) fn read_optional<T>(bytes: &mut Bytes) -> Result<Option<T>>
+    where T: BinaryRead
+{
+    let type_code = bytes.get_i8();
+
+    match type_code {
+        type_code if type_code == T::TYPE_CODE => Ok(Some(T::read(bytes)?)),
+        101 => Ok(None),
+        _ => Err(Error::new(ErrorKind::Serde, format!("Unexpected type code: {}", type_code))),
+    }
+}
+
+pub(crate) fn read_multiple<T>(bytes: &mut Bytes) -> Result<Vec<T>>
+    where T: BinaryRead
+{
     let len = bytes.get_i32_le() as usize;
 
-    let vec = bytes.slice(..len).to_vec();
+    let mut vec = Vec::with_capacity(len);
 
-    bytes.advance(len);
-
-    Ok(String::from_utf8(vec)?)
-}
-
-fn read_uuid(bytes: &mut Bytes) -> Uuid {
-    let mut msb = bytes.get_i64_le();
-    let mut lsb = bytes.get_i64_le();
-
-    let mut arr = [0u8; 16];
-
-    for i in 0 .. 8 {
-        arr[15 - i] = (lsb & 0xFF) as u8;
-
-        lsb = lsb >> 8;
+    for _ in 0 .. len {
+        vec.push(read(bytes)?);
     }
 
-    for i in 8 .. 16 {
-        arr[15 - i] = (msb & 0xFF) as u8;
-
-        msb = msb >> 8;
-    }
-
-    Uuid::from_bytes(arr)
-}
-
-pub(crate) fn read_i32_with_type_check(bytes: &mut Bytes) -> Result<i32> {
-    read_with_type_check(bytes, 3, |bytes| { Ok(bytes.get_i32_le()) })
-}
-
-pub(crate) fn read_i64_with_type_check(bytes: &mut Bytes) -> Result<i64> {
-    read_with_type_check(bytes, 4, |bytes| { Ok(bytes.get_i64_le()) })
-}
-
-pub(crate) fn read_bool_with_type_check(bytes: &mut Bytes) -> Result<bool> {
-    read_with_type_check(bytes, 8, |bytes| { Ok(read_bool(bytes)) })
-}
-
-pub(crate) fn read_string_with_type_check(bytes: &mut Bytes) -> Result<String> {
-    read_with_type_check(bytes, 9, |bytes| { Ok(read_string(bytes)?) })
-}
-
-pub(crate) fn read_string_optional_with_type_check(bytes: &mut Bytes) -> Result<Option<String>> {
-    read_optional_with_type_check(bytes, 9, |bytes| { Ok(read_string(bytes)?) })
-}
-
-fn read_with_type_check<T, F>(bytes: &mut Bytes, expected_type_code: i8, value_reader: F) -> Result<T>
-    where F: Fn(&mut Bytes) -> Result<T>
-{
-    let type_code = bytes.get_i8();
-
-    if type_code == expected_type_code {
-        Ok(value_reader(bytes)?)
-    }
-    else {
-        Err(Error::new(ErrorKind::Serde, format!("Invalid type code: {}", type_code)))
-    }
-}
-
-fn read_optional_with_type_check<T, F>(bytes: &mut Bytes, expected_type_code: i8, value_reader: F) -> Result<Option<T>>
-    where F: Fn(&mut Bytes) -> Result<T>
-{
-    let type_code = bytes.get_i8();
-
-    if type_code == 101 {
-        Ok(None)
-    }
-    else {
-        Ok(Some(read_with_type_check(bytes, expected_type_code, value_reader)?))
-    }
+    Ok(vec)
 }
