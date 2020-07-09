@@ -23,13 +23,13 @@ impl Error {
 }
 
 impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
+    fn from(error: std::io::Error) -> Error {
         Error { kind: ErrorKind::Network, message: error.to_string() }
     }
 }
 
 impl From<std::string::FromUtf8Error> for Error {
-    fn from(error: std::string::FromUtf8Error) -> Self {
+    fn from(error: std::string::FromUtf8Error) -> Error {
         Error { kind: ErrorKind::Serde, message: error.to_string() }
     }
 }

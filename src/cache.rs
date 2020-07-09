@@ -16,7 +16,7 @@ pub enum PeekMode {
 }
 
 impl From<&PeekMode> for u8 {
-    fn from(mode: &PeekMode) -> Self {
+    fn from(mode: &PeekMode) -> u8 {
         match mode {
             PeekMode::All => 0,
             PeekMode::Near => 1,

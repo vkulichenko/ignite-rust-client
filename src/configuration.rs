@@ -68,6 +68,13 @@ pub enum WriteSynchronizationMode {
     PrimarySync = 2,
 }
 
+#[derive(FromPrimitive, ToPrimitive)]
+pub enum IndexType {
+    Sorted = 0,
+    FullText = 1,
+    Geospatial = 2,
+}
+
 pub struct CacheKeyConfiguration {
     pub type_name: String,
     pub affinity_key_field_name: String,
@@ -82,32 +89,6 @@ impl RawRead for CacheKeyConfiguration {
     }
 }
 
-pub struct QueryEntity {
-    pub key_type_name: String,
-    pub value_type_name: String,
-    pub table_name: String,
-    pub key_field_name: String,
-    pub value_field_name: String,
-    pub fields: Vec<QueryField>,
-    pub aliases: Vec<(String, String)>,
-    pub indexes: Vec<QueryIndex>,
-}
-
-impl RawRead for QueryEntity {
-    fn read(bytes: &mut Bytes) -> Result<Self> {
-        Ok(QueryEntity {
-            key_type_name: binary::read(bytes)?,
-            value_type_name: binary::read(bytes)?,
-            table_name: binary::read(bytes)?,
-            key_field_name: binary::read(bytes)?,
-            value_field_name: binary::read(bytes)?,
-            fields: binary::raw_read_multiple(bytes)?,
-            aliases: binary::raw_read_multiple(bytes)?,
-            indexes: binary::raw_read_multiple(bytes)?,
-        })
-    }
-}
-
 pub struct QueryField {
     pub name: String,
     pub type_name: String,
@@ -116,7 +97,7 @@ pub struct QueryField {
 }
 
 impl RawRead for QueryField {
-    fn read(bytes: &mut Bytes) -> Result<Self> {
+    fn read(bytes: &mut Bytes) -> Result<QueryField> {
         Ok(QueryField {
             name: binary::read(bytes)?,
             type_name: binary::read(bytes)?,
@@ -124,13 +105,6 @@ impl RawRead for QueryField {
             not_null: binary::read(bytes)?,
         })
     }
-}
-
-#[derive(FromPrimitive, ToPrimitive)]
-pub enum IndexType {
-    Sorted = 0,
-    FullText = 1,
-    Geospatial = 2,
 }
 
 pub struct QueryIndex {
@@ -147,6 +121,32 @@ impl RawRead for QueryIndex {
             index_type: binary::read_enum(bytes)?,
             inline_size: binary::read(bytes)?,
             fields: binary::raw_read_multiple(bytes)?,
+        })
+    }
+}
+
+pub struct QueryEntity {
+    pub key_type_name: String,
+    pub value_type_name: String,
+    pub table_name: String,
+    pub key_field_name: String,
+    pub value_field_name: String,
+    pub fields: Vec<QueryField>,
+    pub aliases: Vec<(String, String)>,
+    pub indexes: Vec<QueryIndex>,
+}
+
+impl RawRead for QueryEntity {
+    fn read(bytes: &mut Bytes) -> Result<QueryEntity> {
+        Ok(QueryEntity {
+            key_type_name: binary::read(bytes)?,
+            value_type_name: binary::read(bytes)?,
+            table_name: binary::read(bytes)?,
+            key_field_name: binary::read(bytes)?,
+            value_field_name: binary::read(bytes)?,
+            fields: binary::raw_read_multiple(bytes)?,
+            aliases: binary::raw_read_multiple(bytes)?,
+            indexes: binary::raw_read_multiple(bytes)?,
         })
     }
 }
