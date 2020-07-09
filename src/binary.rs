@@ -174,9 +174,7 @@ impl BinaryWrite for Uuid {
     }
 }
 
-impl<T> BinaryWrite for Option<T>
-    where T: BinaryWrite
-{
+impl<T: BinaryWrite> BinaryWrite for Option<T> {
     fn write(&self, bytes: &mut BytesMut) -> Result<()> {
         match self {
             Some(value) => {
