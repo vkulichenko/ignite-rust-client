@@ -26,16 +26,16 @@ impl Value {
 
         match type_code {
             101 => Ok(None),
-            i8::TYPE_CODE => Ok(Some(Value::I8(i8::read(bytes)?))),
-            i16::TYPE_CODE => Ok(Some(Value::I16(i16::read(bytes)?))),
-            i32::TYPE_CODE => Ok(Some(Value::I32(i32::read(bytes)?))),
-            i64::TYPE_CODE => Ok(Some(Value::I64(i64::read(bytes)?))),
-            f32::TYPE_CODE => Ok(Some(Value::F32(f32::read(bytes)?))),
-            f64::TYPE_CODE => Ok(Some(Value::F64(f64::read(bytes)?))),
-            char::TYPE_CODE => Ok(Some(Value::Char(char::read(bytes)?))),
-            bool::TYPE_CODE => Ok(Some(Value::Bool(bool::read(bytes)?))),
-            String::TYPE_CODE => Ok(Some(Value::String(String::read(bytes)?))),
-            Uuid::TYPE_CODE => Ok(Some(Value::Uuid(Uuid::read(bytes)?))),
+            1 => Ok(Some(Value::I8(i8::read(bytes)?))),
+            2 => Ok(Some(Value::I16(i16::read(bytes)?))),
+            3 => Ok(Some(Value::I32(i32::read(bytes)?))),
+            4 => Ok(Some(Value::I64(i64::read(bytes)?))),
+            5 => Ok(Some(Value::F32(f32::read(bytes)?))),
+            6 => Ok(Some(Value::F64(f64::read(bytes)?))),
+            7 => Ok(Some(Value::Char(char::read(bytes)?))),
+            8 => Ok(Some(Value::Bool(bool::read(bytes)?))),
+            9 => Ok(Some(Value::String(String::read(bytes)?))),
+            10 => Ok(Some(Value::Uuid(Uuid::read(bytes)?))),
             _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
         }
     }
@@ -189,75 +189,46 @@ impl<T: BinaryWrite> BinaryWrite for Option<T> {
     }
 }
 
-pub(crate) trait RawRead: Sized {
+pub(crate) trait Read: Sized {
     fn read(bytes: &mut Bytes) -> Result<Self>;
 }
 
-pub(crate) trait Read: RawRead + private::Sealed {
-    const TYPE_CODE: i8;
-}
-
-impl RawRead for i8 {
+impl Read for i8 {
     fn read(bytes: &mut Bytes) -> Result<i8> {
         Ok(bytes.get_i8())
     }
 }
 
-impl Read for i8 {
-    const TYPE_CODE: i8 = 1;
-}
-
-impl RawRead for i16 {
+impl Read for i16 {
     fn read(bytes: &mut Bytes) -> Result<i16> {
         Ok(bytes.get_i16_le())
     }
 }
 
-impl Read for i16 {
-    const TYPE_CODE: i8 = 2;
-}
-
-impl RawRead for i32 {
+impl Read for i32 {
     fn read(bytes: &mut Bytes) -> Result<i32> {
         Ok(bytes.get_i32_le())
     }
 }
 
-impl Read for i32 {
-    const TYPE_CODE: i8 = 3;
-}
-
-impl RawRead for i64 {
+impl Read for i64 {
     fn read(bytes: &mut Bytes) -> Result<i64> {
         Ok(bytes.get_i64_le())
     }
 }
-
-impl Read for i64 {
-    const TYPE_CODE: i8 = 4;
-}
-
-impl RawRead for f32 {
+impl Read for f32 {
     fn read(bytes: &mut Bytes) -> Result<f32> {
         Ok(bytes.get_f32_le())
     }
 }
 
-impl Read for f32 {
-    const TYPE_CODE: i8 = 5;
-}
-
-impl RawRead for f64 {
+impl Read for f64 {
     fn read(bytes: &mut Bytes) -> Result<f64> {
         Ok(bytes.get_f64_le())
     }
 }
 
-impl Read for f64 {
-    const TYPE_CODE: i8 = 6;
-}
-
-impl RawRead for char {
+impl Read for char {
     fn read(bytes: &mut Bytes) -> Result<char> {
         let value = bytes.get_u16_le();
 
@@ -270,21 +241,13 @@ impl RawRead for char {
     }
 }
 
-impl Read for char {
-    const TYPE_CODE: i8 = 7;
-}
-
-impl RawRead for bool {
+impl Read for bool {
     fn read(bytes: &mut Bytes) -> Result<bool> {
         Ok(bytes.get_u8() != 0)
     }
 }
 
-impl Read for bool {
-    const TYPE_CODE: i8 = 8;
-}
-
-impl RawRead for String {
+impl Read for String {
     fn read(bytes: &mut Bytes) -> Result<String> {
         let len = bytes.get_i32_le() as usize;
 
@@ -296,11 +259,7 @@ impl RawRead for String {
     }
 }
 
-impl Read for String {
-    const TYPE_CODE: i8 = 9;
-}
-
-impl RawRead for Uuid {
+impl Read for Uuid {
     fn read(bytes: &mut Bytes) -> Result<Uuid> {
         let mut msb = bytes.get_i64_le();
         let mut lsb = bytes.get_i64_le();
@@ -323,73 +282,51 @@ impl RawRead for Uuid {
     }
 }
 
-impl Read for Uuid {
-    const TYPE_CODE: i8 = 10;
+impl<T: Read> Read for Option<T> {
+    fn read(bytes: &mut Bytes) -> Result<Option<T>> {
+        let flag = bytes.get_i8();
+
+        if flag == 101 {
+            Ok(None)
+        }
+        else {
+            Ok(Some(T::read(bytes)?))
+        }
+    }
 }
 
-impl<T1: Read, T2: Read> RawRead for (T1, T2) {
+impl<T: Read> Read for Vec<T> {
+    fn read(bytes: &mut Bytes) -> Result<Self> {
+        let len = bytes.get_i32_le() as usize;
+
+        let mut vec = Vec::with_capacity(len);
+
+        for _ in 0 .. len {
+            vec.push(T::read(bytes)?);
+        }
+
+        Ok(vec)
+    }
+}
+
+pub(crate) trait EnumRead {}
+
+impl<T: EnumRead + FromPrimitive> Read for T {
+    fn read(bytes: &mut Bytes) -> Result<T> {
+        let value: Option<T> = FromPrimitive::from_i32(Read::read(bytes)?);
+
+        match value {
+            Some(value) => Ok(value),
+            None => Err(Error::new(ErrorKind::Serde, format!("Failed to read enum: {}", type_name::<T>()))),
+        }
+    }
+}
+
+impl<T1: Read, T2: Read> Read for (T1, T2) {
     fn read(bytes: &mut Bytes) -> Result<(T1, T2)> {
-        let v1 = read(bytes)?;
-        let v2 = read(bytes)?;
+        let v1 = T1::read(bytes)?;
+        let v2 = T2::read(bytes)?;
 
         Ok((v1, v2))
     }
-}
-
-pub(crate) fn read<T: Read>(bytes: &mut Bytes) -> Result<T> {
-    let type_code = bytes.get_i8();
-
-    match type_code {
-        type_code if type_code == T::TYPE_CODE => Ok(T::read(bytes)?),
-        101 => Err(Error::new(ErrorKind::Serde, "NULL is not expected.".to_string())),
-        _ => Err(Error::new(ErrorKind::Serde, format!("Unexpected type code: {}", type_code))),
-    }
-}
-
-pub(crate) fn read_optional<T: Read>(bytes: &mut Bytes) -> Result<Option<T>> {
-    let type_code = bytes.get_i8();
-
-    match type_code {
-        type_code if type_code == T::TYPE_CODE => Ok(Some(T::read(bytes)?)),
-        101 => Ok(None),
-        _ => Err(Error::new(ErrorKind::Serde, format!("Unexpected type code: {}", type_code))),
-    }
-}
-
-pub(crate) fn raw_read_multiple<T: RawRead>(bytes: &mut Bytes) -> Result<Vec<T>> {
-    let len = bytes.get_i32_le() as usize;
-
-    let mut vec = Vec::with_capacity(len);
-
-    for _ in 0 .. len {
-        vec.push(T::read(bytes)?);
-    }
-
-    Ok(vec)
-}
-
-pub(crate) fn read_enum<T: FromPrimitive>(bytes: &mut Bytes) -> Result<T> {
-    let value: Option<T> = FromPrimitive::from_i32(read(bytes)?);
-
-    match value {
-        Some(value) => Ok(value),
-        None => Err(Error::new(ErrorKind::Serde, format!("Failed to read enum: {}", type_name::<T>()))),
-    }
-}
-
-mod private {
-    use uuid::Uuid;
-
-    pub trait Sealed {}
-
-    impl Sealed for i8 {}
-    impl Sealed for i16 {}
-    impl Sealed for i32 {}
-    impl Sealed for i64 {}
-    impl Sealed for f32 {}
-    impl Sealed for f64 {}
-    impl Sealed for char {}
-    impl Sealed for bool {}
-    impl Sealed for String {}
-    impl Sealed for Uuid {}
 }
