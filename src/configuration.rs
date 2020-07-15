@@ -1,7 +1,7 @@
 use bytes::{Bytes, Buf};
 
 use crate::error::Result;
-use crate::binary::{Read, EnumRead};
+use crate::binary::{Read, EnumRead, Value};
 
 pub struct Configuration {
     pub(crate) address: String,
@@ -36,6 +36,15 @@ impl Configuration {
         self
     }
 }
+
+#[derive(FromPrimitive, ToPrimitive)]
+pub enum AtomicityMode {
+    Transactional = 0,
+    Atomic = 1,
+    TransactionalSnapshot = 2,
+}
+
+impl EnumRead for AtomicityMode {}
 
 #[derive(FromPrimitive, ToPrimitive)]
 pub enum CacheMode {
@@ -103,6 +112,7 @@ pub struct QueryField {
     pub type_name: String,
     pub key_field: bool,
     pub not_null: bool,
+    pub default_value: Option<Value>,
 }
 
 impl Read for QueryField {
@@ -112,6 +122,7 @@ impl Read for QueryField {
             type_name: Read::read(bytes)?,
             key_field: Read::read(bytes)?,
             not_null: Read::read(bytes)?,
+            default_value: Value::read(bytes)?,
         })
     }
 }
@@ -161,6 +172,7 @@ impl Read for QueryEntity {
 }
 
 pub struct CacheConfiguration {
+    pub atomicity_mode: AtomicityMode,
     pub backups: i32,
     pub mode: CacheMode,
     pub copy_on_read: bool,
@@ -168,8 +180,8 @@ pub struct CacheConfiguration {
     pub eager_ttl: bool,
     pub statistics_enabled: bool,
     pub group_name: Option<String>,
-    pub invalidate: bool,
     pub default_lock_timeout: i64,
+    pub max_concurrent_async_operations: i32,
     pub max_query_iterators: i32,
     pub name: Option<String>,
     pub on_heap_cache_enabled: bool,
@@ -197,6 +209,7 @@ impl CacheConfiguration {
         bytes.advance(4); // Ignore length.
 
         Ok(CacheConfiguration {
+            atomicity_mode: Read::read(bytes)?,
             backups: Read::read(bytes)?,
             mode: Read::read(bytes)?,
             copy_on_read: Read::read(bytes)?,
@@ -204,8 +217,8 @@ impl CacheConfiguration {
             eager_ttl: Read::read(bytes)?,
             statistics_enabled: Read::read(bytes)?,
             group_name: Read::read(bytes)?,
-            invalidate: Read::read(bytes)?,
             default_lock_timeout: Read::read(bytes)?,
+            max_concurrent_async_operations: Read::read(bytes)?,
             max_query_iterators: Read::read(bytes)?,
             name: Read::read(bytes)?,
             on_heap_cache_enabled: Read::read(bytes)?,

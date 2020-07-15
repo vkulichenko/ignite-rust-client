@@ -261,6 +261,8 @@ impl Read for String {
     }
 }
 
+impl Nullable for String {}
+
 impl Read for Uuid {
     fn read(bytes: &mut Bytes) -> Result<Uuid> {
         check_flag(bytes, 10)?;
@@ -286,13 +288,21 @@ impl Read for Uuid {
     }
 }
 
-impl<T: Read> Read for Option<T> {
+impl Nullable for Uuid {}
+
+pub(crate) trait Nullable {}
+
+impl<T: Read + Nullable> Read for Option<T> {
     fn read(bytes: &mut Bytes) -> Result<Option<T>> {
         let flag = bytes.first();
 
         match flag {
             None => Err(Error::new(ErrorKind::Serde, "Out of bytes".to_string())),
-            Some(101) => Ok(None),
+            Some(101) => {
+                bytes.advance(1);
+
+                Ok(None)
+            },
             _ => Ok(Some(T::read(bytes)?))
         }
     }
@@ -341,59 +351,6 @@ fn check_flag(bytes: &mut Bytes, expected: i8) -> Result<()> {
         Ok(())
     }
     else {
-        Err(Error::new(ErrorKind::Serde, format!("Unexpected flag: {}", flag)))
+        Err(Error::new(ErrorKind::Serde, format!("Unexpected flag: {} != {}", flag, expected)))
     }
 }
-
-// pub struct BinaryReader {
-//     bytes: Bytes,
-// }
-//
-// impl BinaryReader {
-//     pub fn new(bytes: Bytes) -> BinaryReader {
-//         BinaryReader { bytes }
-//     }
-//
-//     pub fn read_i8(&mut self) -> Result<i8> {
-//         Ok(self.bytes.get_i8())
-//     }
-//
-//     pub fn read_i16(&mut self) -> Result<i16> {
-//         Ok(self.bytes.get_i16_le())
-//     }
-//
-//     pub fn read_i32(&mut self) -> Result<i32> {
-//         Ok(self.bytes.get_i32_le())
-//     }
-//
-//     pub fn read_i64(&mut self) -> Result<i64> {
-//         Ok(self.bytes.get_i64_le())
-//     }
-//
-//     pub fn read_f32(&mut self) -> Result<f32> {
-//         Ok(self.bytes.get_f32_le())
-//     }
-//
-//     pub fn read_f64(&mut self) -> Result<f64> {
-//         Ok(self.bytes.get_f64_le())
-//     }
-//
-//     pub fn read_char(&mut self) -> Result<char> {
-//         let value = bytes.get_u16_le();
-//
-//         if let Some(char) = std::char::from_u32(value as u32) {
-//             Ok(char)
-//         }
-//         else {
-//             Err(Error::new(ErrorKind::Serde, format!("Failed to convert to char: {}", value)))
-//         }
-//     }
-//
-//     pub fn read_bool(&mut self) -> Result<bool> {
-//         Ok(bytes.get_u8() != 0)
-//     }
-//
-//     pub fn read_string(&mut self) -> Result<Option<String>> {
-//
-//     }
-// }

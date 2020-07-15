@@ -110,6 +110,7 @@ mod tests {
     use crate::binary::Value;
     use crate::cache::{Cache, PeekMode};
     use uuid::Uuid;
+    use bytes::{Bytes, Buf};
 
     #[test]
     fn test_put_get_i8() {
