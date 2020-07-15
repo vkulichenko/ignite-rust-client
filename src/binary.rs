@@ -249,6 +249,8 @@ impl Read for bool {
 
 impl Read for String {
     fn read(bytes: &mut Bytes) -> Result<String> {
+        check_flag(bytes, 9)?;
+
         let len = bytes.get_i32_le() as usize;
 
         let vec = bytes.slice(..len).to_vec();
@@ -261,6 +263,8 @@ impl Read for String {
 
 impl Read for Uuid {
     fn read(bytes: &mut Bytes) -> Result<Uuid> {
+        check_flag(bytes, 10)?;
+
         let mut msb = bytes.get_i64_le();
         let mut lsb = bytes.get_i64_le();
 
@@ -284,13 +288,12 @@ impl Read for Uuid {
 
 impl<T: Read> Read for Option<T> {
     fn read(bytes: &mut Bytes) -> Result<Option<T>> {
-        let flag = bytes.get_i8();
+        let flag = bytes.first();
 
-        if flag == 101 {
-            Ok(None)
-        }
-        else {
-            Ok(Some(T::read(bytes)?))
+        match flag {
+            None => Err(Error::new(ErrorKind::Serde, "Out of bytes".to_string())),
+            Some(101) => Ok(None),
+            _ => Ok(Some(T::read(bytes)?))
         }
     }
 }
@@ -330,3 +333,67 @@ impl<T1: Read, T2: Read> Read for (T1, T2) {
         Ok((v1, v2))
     }
 }
+
+fn check_flag(bytes: &mut Bytes, expected: i8) -> Result<()> {
+    let flag = bytes.get_i8();
+
+    if flag == expected {
+        Ok(())
+    }
+    else {
+        Err(Error::new(ErrorKind::Serde, format!("Unexpected flag: {}", flag)))
+    }
+}
+
+// pub struct BinaryReader {
+//     bytes: Bytes,
+// }
+//
+// impl BinaryReader {
+//     pub fn new(bytes: Bytes) -> BinaryReader {
+//         BinaryReader { bytes }
+//     }
+//
+//     pub fn read_i8(&mut self) -> Result<i8> {
+//         Ok(self.bytes.get_i8())
+//     }
+//
+//     pub fn read_i16(&mut self) -> Result<i16> {
+//         Ok(self.bytes.get_i16_le())
+//     }
+//
+//     pub fn read_i32(&mut self) -> Result<i32> {
+//         Ok(self.bytes.get_i32_le())
+//     }
+//
+//     pub fn read_i64(&mut self) -> Result<i64> {
+//         Ok(self.bytes.get_i64_le())
+//     }
+//
+//     pub fn read_f32(&mut self) -> Result<f32> {
+//         Ok(self.bytes.get_f32_le())
+//     }
+//
+//     pub fn read_f64(&mut self) -> Result<f64> {
+//         Ok(self.bytes.get_f64_le())
+//     }
+//
+//     pub fn read_char(&mut self) -> Result<char> {
+//         let value = bytes.get_u16_le();
+//
+//         if let Some(char) = std::char::from_u32(value as u32) {
+//             Ok(char)
+//         }
+//         else {
+//             Err(Error::new(ErrorKind::Serde, format!("Failed to convert to char: {}", value)))
+//         }
+//     }
+//
+//     pub fn read_bool(&mut self) -> Result<bool> {
+//         Ok(bytes.get_u8() != 0)
+//     }
+//
+//     pub fn read_string(&mut self) -> Result<Option<String>> {
+//
+//     }
+// }
