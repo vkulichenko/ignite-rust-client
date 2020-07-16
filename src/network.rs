@@ -5,7 +5,7 @@ use bytes::{BytesMut, Bytes, Buf, BufMut};
 
 use crate::error::{Result, ErrorKind, Error};
 use crate::{VERSION, Version};
-use crate::binary::{Value, BinaryWrite};
+use crate::binary::BinaryWrite;
 use crate::configuration::Configuration;
 
 pub(crate) struct Tcp {
@@ -42,14 +42,9 @@ impl Tcp {
 
             let kind = ErrorKind::Handshake {server_version: Version { major, minor, patch }, client_version: VERSION };
 
-            let message = Value::read(&mut response)?;
+            let message: Option<String> = crate::binary::Read::read(&mut response)?;
 
-            let message = match message {
-                Some(Value::String(message)) => message,
-                _ => "Handshake unexpected failure".to_string(),
-            };
-
-            Err(Error::new(kind, message))
+            Err(Error::new(kind, message.unwrap_or("Handshake unexpected failure".to_string())))
         }
     }
 

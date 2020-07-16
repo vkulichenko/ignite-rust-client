@@ -17,7 +17,7 @@ use configuration::Configuration;
 use cache::Cache;
 use error::Result;
 use network::Tcp;
-use binary::{Value, BinaryWrite};
+use binary::{BinaryWrite, Read};
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
@@ -53,9 +53,9 @@ impl Client {
                 let mut names = Vec::with_capacity(len);
 
                 for _ in 0 .. len {
-                    let name = Value::read(response)?;
+                    let name: Option<String> = Read::read(response)?;
 
-                    if let Some(Value::String(name)) = name {
+                    if let Some(name) = name {
                         names.push(name);
                     }
                 }
@@ -110,7 +110,6 @@ mod tests {
     use crate::binary::Value;
     use crate::cache::{Cache, PeekMode};
     use uuid::Uuid;
-    use bytes::{Bytes, Buf};
 
     #[test]
     fn test_put_get_i8() {
@@ -580,7 +579,7 @@ mod tests {
 
         let cache = client.cache("test-cache");
 
-        assert_eq!(cache.clear(), Ok(()));
+        assert_eq!(cache.remove_all(), Ok(()));
 
         cache
     }
