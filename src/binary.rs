@@ -22,7 +22,11 @@ pub enum Value {
 
 impl Value {
     pub(crate) fn read(bytes: &mut Bytes) -> Result<Option<Value>> {
-        let type_code = bytes.get_i8();
+        let type_code = *bytes.first().ok_or_else(|| Error::new(ErrorKind::Serde, "Out of bytes.".to_string()))?;
+
+        if type_code >= 1 && type_code <= 8 {
+            bytes.advance(1);
+        }
 
         match type_code {
             101 => Ok(None),
@@ -36,7 +40,7 @@ impl Value {
             8 => Ok(Some(Value::Bool(bool::read(bytes)?))),
             9 => Ok(Some(Value::String(String::read(bytes)?))),
             10 => Ok(Some(Value::Uuid(Uuid::read(bytes)?))),
-            _ => Err(Error::new(ErrorKind::Ignite(0), format!("Invalid type code: {}", type_code))),
+            _ => Err(Error::new(ErrorKind::Serde, format!("Invalid type code: {}", type_code))),
         }
     }
 }
