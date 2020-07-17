@@ -199,6 +199,29 @@ impl<T: IgniteWrite + Nullable> IgniteWrite for Option<T> {
     }
 }
 
+impl<T: IgniteWrite> IgniteWrite for Vec<T> {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        bytes.put_i32_le(self.len() as i32);
+
+        for item in self {
+            item.write(bytes)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<T1: IgniteWrite, T2: IgniteWrite> IgniteWrite for (T1, T2) {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        let (v1, v2) = self;
+
+        v1.write(bytes)?;
+        v2.write(bytes)?;
+
+        Ok(())
+    }
+}
+
 pub(crate) trait IgniteRead: Sized {
     fn read(bytes: &mut Bytes) -> Result<Self>;
 }
