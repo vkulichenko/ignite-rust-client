@@ -1,8 +1,5 @@
-use std::any::type_name;
-
 use bytes::{BufMut, Buf, BytesMut, Bytes};
 use uuid::Uuid;
-use num_traits::FromPrimitive;
 
 use crate::error::{Result, ErrorKind, Error};
 
@@ -324,19 +321,6 @@ impl<T: IgniteRead> IgniteRead for Vec<T> {
         }
 
         Ok(vec)
-    }
-}
-
-pub(crate) trait EnumRead {}
-
-impl<T: EnumRead + FromPrimitive> IgniteRead for T {
-    fn read(bytes: &mut Bytes) -> Result<T> {
-        let value: Option<T> = FromPrimitive::from_i32(IgniteRead::read(bytes)?);
-
-        match value {
-            Some(value) => Ok(value),
-            None => Err(Error::new(ErrorKind::Serde, format!("Failed to read enum: {}", type_name::<T>()))),
-        }
     }
 }
 

@@ -1,7 +1,10 @@
-use bytes::Bytes;
+use std::any::type_name;
 
-use crate::error::Result;
-use crate::binary::{IgniteRead, EnumRead, Value};
+use bytes::Bytes;
+use num_traits::FromPrimitive;
+
+use crate::error::{Result, ErrorKind, Error};
+use crate::binary::{IgniteRead, Value};
 
 pub struct Configuration {
     pub(crate) address: String,
@@ -37,25 +40,21 @@ impl Configuration {
     }
 }
 
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
 pub enum AtomicityMode {
     Transactional = 0,
     Atomic = 1,
     TransactionalSnapshot = 2,
 }
 
-impl EnumRead for AtomicityMode {}
-
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
 pub enum CacheMode {
     Local = 0,
     Replicated = 1,
     Partitioned = 2,
 }
 
-impl EnumRead for CacheMode {}
-
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
 pub enum PartitionLossPolicy {
     ReadOnlySafe = 0,
     ReadOnlyAll = 1,
@@ -64,34 +63,26 @@ pub enum PartitionLossPolicy {
     Ignore = 4,
 }
 
-impl EnumRead for PartitionLossPolicy {}
-
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
 pub enum RebalanceMode {
     Sync = 0,
     Async = 1,
     None = 2,
 }
 
-impl EnumRead for RebalanceMode {}
-
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
 pub enum WriteSynchronizationMode {
     FullSync = 0,
     FullAsync = 1,
     PrimarySync = 2,
 }
 
-impl EnumRead for WriteSynchronizationMode {}
-
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
 pub enum IndexType {
     Sorted = 0,
     FullText = 1,
     Geospatial = 2,
 }
-
-impl EnumRead for IndexType {}
 
 #[derive(IgniteRead)]
 pub struct CacheKeyConfiguration {
