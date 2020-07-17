@@ -1,7 +1,7 @@
-use bytes::{Bytes, Buf};
+use bytes::Bytes;
 
 use crate::error::Result;
-use crate::binary::{Read, EnumRead, Value};
+use crate::binary::{IgniteRead, EnumRead, Value};
 
 pub struct Configuration {
     pub(crate) address: String,
@@ -93,20 +93,13 @@ pub enum IndexType {
 
 impl EnumRead for IndexType {}
 
+#[derive(IgniteRead)]
 pub struct CacheKeyConfiguration {
     pub type_name: String,
     pub affinity_key_field_name: String,
 }
 
-impl Read for CacheKeyConfiguration {
-    fn read(bytes: &mut Bytes) -> Result<CacheKeyConfiguration> {
-        Ok(CacheKeyConfiguration {
-            type_name: Read::read(bytes)?,
-            affinity_key_field_name: Read::read(bytes)?,
-        })
-    }
-}
-
+#[derive(IgniteRead)]
 pub struct QueryField {
     pub name: String,
     pub type_name: String,
@@ -115,18 +108,7 @@ pub struct QueryField {
     pub default_value: Option<Value>,
 }
 
-impl Read for QueryField {
-    fn read(bytes: &mut Bytes) -> Result<QueryField> {
-        Ok(QueryField {
-            name: Read::read(bytes)?,
-            type_name: Read::read(bytes)?,
-            key_field: Read::read(bytes)?,
-            not_null: Read::read(bytes)?,
-            default_value: Value::read(bytes)?,
-        })
-    }
-}
-
+#[derive(IgniteRead)]
 pub struct QueryIndex {
     pub index_name: String,
     pub index_type: IndexType,
@@ -134,17 +116,7 @@ pub struct QueryIndex {
     pub fields: Vec<(String, bool)>,
 }
 
-impl Read for QueryIndex {
-    fn read(bytes: &mut Bytes) -> Result<QueryIndex> {
-        Ok(QueryIndex {
-            index_name: Read::read(bytes)?,
-            index_type: Read::read(bytes)?,
-            inline_size: Read::read(bytes)?,
-            fields: Read::read(bytes)?,
-        })
-    }
-}
-
+#[derive(IgniteRead)]
 pub struct QueryEntity {
     pub key_type_name: String,
     pub value_type_name: String,
@@ -156,21 +128,7 @@ pub struct QueryEntity {
     pub indexes: Vec<QueryIndex>,
 }
 
-impl Read for QueryEntity {
-    fn read(bytes: &mut Bytes) -> Result<QueryEntity> {
-        Ok(QueryEntity {
-            key_type_name: Read::read(bytes)?,
-            value_type_name: Read::read(bytes)?,
-            table_name: Read::read(bytes)?,
-            key_field_name: Read::read(bytes)?,
-            value_field_name: Read::read(bytes)?,
-            fields: Read::read(bytes)?,
-            aliases: Read::read(bytes)?,
-            indexes: Read::read(bytes)?,
-        })
-    }
-}
-
+#[derive(IgniteRead)]
 pub struct CacheConfiguration {
     pub atomicity_mode: AtomicityMode,
     pub backups: i32,
@@ -202,43 +160,4 @@ pub struct CacheConfiguration {
     pub write_synchronization_mode: WriteSynchronizationMode,
     pub cache_key_configurations: Vec<CacheKeyConfiguration>,
     pub query_entities: Vec<QueryEntity>,
-}
-
-impl CacheConfiguration {
-    pub(crate) fn read(bytes: &mut Bytes) -> Result<CacheConfiguration> {
-        bytes.advance(4); // Ignore length.
-
-        Ok(CacheConfiguration {
-            atomicity_mode: Read::read(bytes)?,
-            backups: Read::read(bytes)?,
-            mode: Read::read(bytes)?,
-            copy_on_read: Read::read(bytes)?,
-            data_region_name: Read::read(bytes)?,
-            eager_ttl: Read::read(bytes)?,
-            statistics_enabled: Read::read(bytes)?,
-            group_name: Read::read(bytes)?,
-            default_lock_timeout: Read::read(bytes)?,
-            max_concurrent_async_operations: Read::read(bytes)?,
-            max_query_iterators: Read::read(bytes)?,
-            name: Read::read(bytes)?,
-            on_heap_cache_enabled: Read::read(bytes)?,
-            partition_loss_policy: Read::read(bytes)?,
-            query_detail_metrics_size: Read::read(bytes)?,
-            query_parallelism: Read::read(bytes)?,
-            read_from_backup: Read::read(bytes)?,
-            rebalance_batch_size: Read::read(bytes)?,
-            rebalance_batch_prefetch_count: Read::read(bytes)?,
-            rebalance_delay: Read::read(bytes)?,
-            rebalance_mode: Read::read(bytes)?,
-            rebalance_order: Read::read(bytes)?,
-            rebalance_throttle: Read::read(bytes)?,
-            rebalance_timeout: Read::read(bytes)?,
-            sql_escape_all: Read::read(bytes)?,
-            sql_index_inline_max_size: Read::read(bytes)?,
-            sql_schema: Read::read(bytes)?,
-            write_synchronization_mode: Read::read(bytes)?,
-            cache_key_configurations: Read::read(bytes)?,
-            query_entities: Read::read(bytes)?,
-        })
-    }
 }

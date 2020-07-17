@@ -42,7 +42,7 @@ impl Tcp {
 
             let kind = ErrorKind::Handshake {server_version: Version { major, minor, patch }, client_version: VERSION };
 
-            let message: Option<String> = crate::binary::Read::read(&mut response)?;
+            let message: Option<String> = crate::binary::IgniteRead::read(&mut response)?;
 
             Err(Error::new(kind, message.unwrap_or("Handshake unexpected failure".to_string())))
         }

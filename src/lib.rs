@@ -1,4 +1,7 @@
 #[macro_use]
+extern crate binary_derive;
+
+#[macro_use]
 extern crate num_derive;
 
 mod configuration;
@@ -17,7 +20,7 @@ use configuration::Configuration;
 use cache::Cache;
 use error::Result;
 use network::Tcp;
-use binary::{BinaryWrite, Read};
+use binary::{BinaryWrite, IgniteRead};
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
@@ -53,7 +56,7 @@ impl Client {
                 let mut names = Vec::with_capacity(len);
 
                 for _ in 0 .. len {
-                    let name: Option<String> = Read::read(response)?;
+                    let name: Option<String> = IgniteRead::read(response)?;
 
                     if let Some(name) = name {
                         names.push(name);
@@ -566,9 +569,9 @@ mod tests {
     }
 
     fn client() -> Client {
-        let config = Configuration::default()
-            .username("ignite")
-            .password("ignite");
+        let config = Configuration::default();
+            // .username("ignite")
+            // .password("ignite");
 
         Client::start(config)
             .expect("Failed to create a client.")

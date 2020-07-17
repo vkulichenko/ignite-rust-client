@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use bytes::{BytesMut, Bytes, BufMut, Buf};
 
-use crate::binary::{Value, BinaryWrite};
+use crate::binary::{Value, BinaryWrite, IgniteRead};
 use crate::error::Result;
 use crate::network::Tcp;
 use crate::configuration::CacheConfiguration;
@@ -41,6 +41,8 @@ impl Cache {
             1055,
             |_| { Ok(()) },
             |response| {
+                response.advance(4); // Ignore length.
+
                 CacheConfiguration::read(response)
             }
         )
@@ -53,7 +55,7 @@ impl Cache {
                 key.write(request)
             },
             |response| {
-                Value::read(response)
+                <Option<Value>>::read(response)
             }
         )
     }
@@ -104,8 +106,8 @@ impl Cache {
                 let mut entries = Vec::with_capacity(len);
 
                 for _ in 0 .. len {
-                    let key = Value::read(response)?;
-                    let value = Value::read(response)?;
+                    let key = <Option<Value>>::read(response)?;
+                    let value = <Option<Value>>::read(response)?;
 
                     if let Some(key) = key {
                         entries.push((key, value));
@@ -144,7 +146,7 @@ impl Cache {
                 Ok(())
             },
             |response| {
-                Value::read(response)
+                <Option<Value>>::read(response)
             }
         )
     }
@@ -159,7 +161,7 @@ impl Cache {
                 Ok(())
             },
             |response| {
-                Value::read(response)
+                <Option<Value>>::read(response)
             }
         )
     }
@@ -171,7 +173,7 @@ impl Cache {
                 key.write(request)
             },
             |response| {
-                Value::read(response)
+                <Option<Value>>::read(response)
             }
         )
     }
@@ -186,7 +188,7 @@ impl Cache {
                 Ok(())
             },
             |response| {
-                Value::read(response)
+                <Option<Value>>::read(response)
             }
         )
     }

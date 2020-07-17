@@ -20,8 +20,8 @@ pub enum Value {
     Uuid(Uuid),
 }
 
-impl Value {
-    pub(crate) fn read(bytes: &mut Bytes) -> Result<Option<Value>> {
+impl IgniteRead for Value {
+    fn read(bytes: &mut Bytes) -> Result<Value> {
         let type_code = *bytes.first().ok_or_else(|| Error::new(ErrorKind::Serde, "Out of bytes.".to_string()))?;
 
         if type_code >= 1 && type_code <= 8 {
@@ -29,21 +29,22 @@ impl Value {
         }
 
         match type_code {
-            101 => Ok(None),
-            1 => Ok(Some(Value::I8(i8::read(bytes)?))),
-            2 => Ok(Some(Value::I16(i16::read(bytes)?))),
-            3 => Ok(Some(Value::I32(i32::read(bytes)?))),
-            4 => Ok(Some(Value::I64(i64::read(bytes)?))),
-            5 => Ok(Some(Value::F32(f32::read(bytes)?))),
-            6 => Ok(Some(Value::F64(f64::read(bytes)?))),
-            7 => Ok(Some(Value::Char(char::read(bytes)?))),
-            8 => Ok(Some(Value::Bool(bool::read(bytes)?))),
-            9 => Ok(Some(Value::String(String::read(bytes)?))),
-            10 => Ok(Some(Value::Uuid(Uuid::read(bytes)?))),
+            1 => Ok(Value::I8(i8::read(bytes)?)),
+            2 => Ok(Value::I16(i16::read(bytes)?)),
+            3 => Ok(Value::I32(i32::read(bytes)?)),
+            4 => Ok(Value::I64(i64::read(bytes)?)),
+            5 => Ok(Value::F32(f32::read(bytes)?)),
+            6 => Ok(Value::F64(f64::read(bytes)?)),
+            7 => Ok(Value::Char(char::read(bytes)?)),
+            8 => Ok(Value::Bool(bool::read(bytes)?)),
+            9 => Ok(Value::String(String::read(bytes)?)),
+            10 => Ok(Value::Uuid(Uuid::read(bytes)?)),
             _ => Err(Error::new(ErrorKind::Serde, format!("Invalid type code: {}", type_code))),
         }
     }
 }
+
+impl Nullable for Value {}
 
 pub(crate) trait BinaryWrite {
     fn write(&self, bytes: &mut BytesMut) -> Result<()>;
@@ -193,46 +194,46 @@ impl<T: BinaryWrite> BinaryWrite for Option<T> {
     }
 }
 
-pub(crate) trait Read: Sized {
+pub(crate) trait IgniteRead: Sized {
     fn read(bytes: &mut Bytes) -> Result<Self>;
 }
 
-impl Read for i8 {
+impl IgniteRead for i8 {
     fn read(bytes: &mut Bytes) -> Result<i8> {
         Ok(bytes.get_i8())
     }
 }
 
-impl Read for i16 {
+impl IgniteRead for i16 {
     fn read(bytes: &mut Bytes) -> Result<i16> {
         Ok(bytes.get_i16_le())
     }
 }
 
-impl Read for i32 {
+impl IgniteRead for i32 {
     fn read(bytes: &mut Bytes) -> Result<i32> {
         Ok(bytes.get_i32_le())
     }
 }
 
-impl Read for i64 {
+impl IgniteRead for i64 {
     fn read(bytes: &mut Bytes) -> Result<i64> {
         Ok(bytes.get_i64_le())
     }
 }
-impl Read for f32 {
+impl IgniteRead for f32 {
     fn read(bytes: &mut Bytes) -> Result<f32> {
         Ok(bytes.get_f32_le())
     }
 }
 
-impl Read for f64 {
+impl IgniteRead for f64 {
     fn read(bytes: &mut Bytes) -> Result<f64> {
         Ok(bytes.get_f64_le())
     }
 }
 
-impl Read for char {
+impl IgniteRead for char {
     fn read(bytes: &mut Bytes) -> Result<char> {
         let value = bytes.get_u16_le();
 
@@ -245,13 +246,13 @@ impl Read for char {
     }
 }
 
-impl Read for bool {
+impl IgniteRead for bool {
     fn read(bytes: &mut Bytes) -> Result<bool> {
         Ok(bytes.get_u8() != 0)
     }
 }
 
-impl Read for String {
+impl IgniteRead for String {
     fn read(bytes: &mut Bytes) -> Result<String> {
         check_flag(bytes, 9)?;
 
@@ -267,7 +268,7 @@ impl Read for String {
 
 impl Nullable for String {}
 
-impl Read for Uuid {
+impl IgniteRead for Uuid {
     fn read(bytes: &mut Bytes) -> Result<Uuid> {
         check_flag(bytes, 10)?;
 
@@ -296,7 +297,7 @@ impl Nullable for Uuid {}
 
 pub(crate) trait Nullable {}
 
-impl<T: Read + Nullable> Read for Option<T> {
+impl<T: IgniteRead + Nullable> IgniteRead for Option<T> {
     fn read(bytes: &mut Bytes) -> Result<Option<T>> {
         let flag = bytes.first();
 
@@ -312,7 +313,7 @@ impl<T: Read + Nullable> Read for Option<T> {
     }
 }
 
-impl<T: Read> Read for Vec<T> {
+impl<T: IgniteRead> IgniteRead for Vec<T> {
     fn read(bytes: &mut Bytes) -> Result<Self> {
         let len = bytes.get_i32_le() as usize;
 
@@ -328,9 +329,9 @@ impl<T: Read> Read for Vec<T> {
 
 pub(crate) trait EnumRead {}
 
-impl<T: EnumRead + FromPrimitive> Read for T {
+impl<T: EnumRead + FromPrimitive> IgniteRead for T {
     fn read(bytes: &mut Bytes) -> Result<T> {
-        let value: Option<T> = FromPrimitive::from_i32(Read::read(bytes)?);
+        let value: Option<T> = FromPrimitive::from_i32(IgniteRead::read(bytes)?);
 
         match value {
             Some(value) => Ok(value),
@@ -339,7 +340,7 @@ impl<T: EnumRead + FromPrimitive> Read for T {
     }
 }
 
-impl<T1: Read, T2: Read> Read for (T1, T2) {
+impl<T1: IgniteRead, T2: IgniteRead> IgniteRead for (T1, T2) {
     fn read(bytes: &mut Bytes) -> Result<(T1, T2)> {
         let v1 = T1::read(bytes)?;
         let v2 = T2::read(bytes)?;

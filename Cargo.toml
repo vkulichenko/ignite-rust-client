@@ -5,6 +5,7 @@ authors = ["Valentin Kulichenko <valentin.kulichenko@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+binary_derive = { path = "binary_derive" }
 bytes = "0.5.5"
 uuid = "0.8.1"
 num-traits = "0.2.12"
