@@ -5,7 +5,7 @@ use bytes::{BytesMut, Bytes, Buf, BufMut};
 
 use crate::error::{Result, ErrorKind, Error};
 use crate::{VERSION, Version};
-use crate::binary::BinaryWrite;
+use crate::binary::IgniteWrite;
 use crate::configuration::Configuration;
 
 pub(crate) struct Tcp {

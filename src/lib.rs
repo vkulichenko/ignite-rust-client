@@ -20,7 +20,8 @@ use configuration::Configuration;
 use cache::Cache;
 use error::Result;
 use network::Tcp;
-use binary::{BinaryWrite, IgniteRead};
+use binary::{IgniteWrite, IgniteRead};
+use crate::configuration::CacheConfiguration;
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
@@ -36,12 +37,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn start(config: Configuration) -> Result<Client> {
-        let stream = TcpStream::connect(&config.address)?;
+    pub fn start(configuration: Configuration) -> Result<Client> {
+        let stream = TcpStream::connect(&configuration.address)?;
 
         let tcp = Rc::new(RefCell::new(Tcp { stream }));
 
-        tcp.borrow_mut().handshake(&config)?;
+        tcp.borrow_mut().handshake(&configuration)?;
 
         Ok(Client { tcp })
     }
@@ -96,8 +97,36 @@ impl Client {
         Ok(Cache::new(name.clone(), self.tcp.clone()))
     }
 
-    pub fn destroy_cache(&self, name: &str) -> Result<()> {
-        self.cache(name).destroy()
+    pub fn create_cache_with_configuration(&self, configuration: CacheConfiguration) -> Result<Cache> {
+        let name = configuration.name;
+
+        self.tcp.borrow_mut().execute(
+            1053,
+            |request| {
+                // TODO: write config
+
+                Ok(())
+            },
+            |_| { Ok(()) }
+        )?;
+
+        Ok(Cache::new(name.clone(), self.tcp.clone()))
+    }
+
+    pub fn get_or_create_cache_with_configuration(&self, configuration: CacheConfiguration) -> Result<Cache> {
+        let name = configuration.name;
+
+        self.tcp.borrow_mut().execute(
+            1054,
+            |request| {
+                // TODO: write config
+
+                Ok(())
+            },
+            |_| { Ok(()) }
+        )?;
+
+        Ok(Cache::new(name.clone(), self.tcp.clone()))
     }
 
     pub fn cache(&self, name: &str) -> Cache {
@@ -563,7 +592,7 @@ mod tests {
         let config = cache.configuration()
             .expect("Failed to get cache configuration.");
 
-        assert_eq!(config.name, Some("test-cache".to_string()));
+        assert_eq!(config.name, "test-cache".to_string());
 
         // TODO: Check other parameters.
     }

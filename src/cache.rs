@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use bytes::{BytesMut, Bytes, BufMut, Buf};
 
-use crate::binary::{Value, BinaryWrite, IgniteRead};
+use crate::binary::{Value, IgniteWrite, IgniteRead};
 use crate::error::Result;
 use crate::network::Tcp;
 use crate::configuration::CacheConfiguration;

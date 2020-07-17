@@ -132,7 +132,7 @@ pub struct CacheConfiguration {
     pub default_lock_timeout: i64,
     pub max_concurrent_async_operations: i32,
     pub max_query_iterators: i32,
-    pub name: Option<String>,
+    pub name: String,
     pub on_heap_cache_enabled: bool,
     pub partition_loss_policy: PartitionLossPolicy,
     pub query_detail_metrics_size: i32,
