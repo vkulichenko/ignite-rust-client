@@ -97,35 +97,27 @@ impl Client {
     }
 
     pub fn create_cache_with_configuration(&self, configuration: CacheConfiguration) -> Result<Cache> {
-        let name = configuration.name;
-
         self.tcp.borrow_mut().execute(
             1053,
-            |_request| {
-                // TODO: write config
-
-                Ok(())
+            |request| {
+                configuration.write(request)
             },
             |_| { Ok(()) }
         )?;
 
-        Ok(Cache::new(name.clone(), self.tcp.clone()))
+        Ok(Cache::new(configuration.name, self.tcp.clone()))
     }
 
     pub fn get_or_create_cache_with_configuration(&self, configuration: CacheConfiguration) -> Result<Cache> {
-        let name = configuration.name;
-
         self.tcp.borrow_mut().execute(
             1054,
-            |_request| {
-                // TODO: write config
-
-                Ok(())
+            |request| {
+                configuration.write(request)
             },
             |_| { Ok(()) }
         )?;
 
-        Ok(Cache::new(name.clone(), self.tcp.clone()))
+        Ok(Cache::new(configuration.name, self.tcp.clone()))
     }
 
     pub fn cache(&self, name: &str) -> Cache {
@@ -141,18 +133,6 @@ mod tests {
     use crate::binary::Value;
     use crate::cache::{Cache, PeekMode};
     use uuid::Uuid;
-    use bytes::{BytesMut, BufMut};
-
-    #[test]
-    fn test_bytes() {
-        let mut b = BytesMut::with_capacity(4);
-
-        b.put_i32(1);
-        b.put_i32(2);
-
-        println!("{}", b.len());
-        println!("{}", b.capacity());
-    }
 
     #[test]
     fn test_put_get_i8() {

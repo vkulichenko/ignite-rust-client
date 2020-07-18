@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use bytes::{Bytes, BytesMut};
+use bytes::{Bytes, BytesMut, BufMut};
 use num_traits::{FromPrimitive, ToPrimitive};
 
 use crate::error::{Result, ErrorKind, Error};
@@ -154,7 +154,50 @@ pub struct CacheConfiguration {
 }
 
 impl IgniteWrite for CacheConfiguration {
-    fn write(&self, _bytes: &mut BytesMut) -> Result<()> {
-        unimplemented!()
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        let config_bytes = BytesMut::with_capacity(1024);
+
+        write_property(bytes, 2, &self.atomicity_mode)?;
+        write_property(bytes, 3, &self.backups)?;
+        write_property(bytes, 1, &self.mode)?;
+        write_property(bytes, 5, &self.copy_on_read)?;
+        write_property(bytes, 100, &self.data_region_name)?;
+        write_property(bytes, 405, &self.eager_ttl)?;
+        write_property(bytes, 406, &self.statistics_enabled)?;
+        write_property(bytes, 400, &self.group_name)?;
+        write_property(bytes, 402, &self.default_lock_timeout)?;
+        write_property(bytes, 403, &self.max_concurrent_async_operations)?;
+        write_property(bytes, 206, &self.max_query_iterators)?;
+        write_property(bytes, 0, &self.name)?;
+        write_property(bytes, 101, &self.on_heap_cache_enabled)?;
+        write_property(bytes, 404, &self.partition_loss_policy)?;
+        write_property(bytes, 202, &self.query_detail_metrics_size)?;
+        write_property(bytes, 201, &self.query_parallelism)?;
+        write_property(bytes, 6, &self.read_from_backup)?;
+        write_property(bytes, 303, &self.rebalance_batch_size)?;
+        write_property(bytes, 304, &self.rebalance_batch_prefetch_count)?;
+        write_property(bytes, 301, &self.rebalance_delay)?;
+        write_property(bytes, 300, &self.rebalance_mode)?;
+        write_property(bytes, 305, &self.rebalance_order)?;
+        write_property(bytes, 306, &self.rebalance_throttle)?;
+        write_property(bytes, 302, &self.rebalance_timeout)?;
+        write_property(bytes, 205, &self.sql_escape_all)?;
+        write_property(bytes, 204, &self.sql_index_inline_max_size)?;
+        write_property(bytes, 203, &self.sql_schema)?;
+        write_property(bytes, 4, &self.write_synchronization_mode)?;
+        write_property(bytes, 401, &self.cache_key_configurations)?;
+        write_property(bytes, 200, &self.query_entities)?;
+
+        bytes.put_i32_le(config_bytes.len() as i32);
+        bytes.put_i16_le(30);
+        bytes.put(config_bytes);
+
+        Ok(())
     }
+}
+
+fn write_property<T: IgniteWrite>(bytes: &mut BytesMut, code: i16, value: &T) -> Result<()> {
+    bytes.put_i16(code);
+
+    value.write(bytes)
 }
