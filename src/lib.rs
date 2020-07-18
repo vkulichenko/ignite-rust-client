@@ -1,8 +1,7 @@
 #[macro_use]
-extern crate binary_derive;
-
-#[macro_use]
 extern crate num_derive;
+#[macro_use]
+extern crate binary_derive;
 
 mod configuration;
 mod binary;
@@ -102,7 +101,7 @@ impl Client {
 
         self.tcp.borrow_mut().execute(
             1053,
-            |request| {
+            |_request| {
                 // TODO: write config
 
                 Ok(())
@@ -118,7 +117,7 @@ impl Client {
 
         self.tcp.borrow_mut().execute(
             1054,
-            |request| {
+            |_request| {
                 // TODO: write config
 
                 Ok(())
@@ -142,6 +141,18 @@ mod tests {
     use crate::binary::Value;
     use crate::cache::{Cache, PeekMode};
     use uuid::Uuid;
+    use bytes::{BytesMut, BufMut};
+
+    #[test]
+    fn test_bytes() {
+        let mut b = BytesMut::with_capacity(4);
+
+        b.put_i32(1);
+        b.put_i32(2);
+
+        println!("{}", b.len());
+        println!("{}", b.capacity());
+    }
 
     #[test]
     fn test_put_get_i8() {

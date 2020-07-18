@@ -1,10 +1,10 @@
 use std::any::type_name;
 
-use bytes::Bytes;
-use num_traits::FromPrimitive;
+use bytes::{Bytes, BytesMut};
+use num_traits::{FromPrimitive, ToPrimitive};
 
 use crate::error::{Result, ErrorKind, Error};
-use crate::binary::{IgniteRead, Value};
+use crate::binary::{IgniteRead, Value, IgniteWrite};
 
 pub struct Configuration {
     pub(crate) address: String,
@@ -40,21 +40,21 @@ impl Configuration {
     }
 }
 
-#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead, IgniteWrite)]
 pub enum AtomicityMode {
     Transactional = 0,
     Atomic = 1,
     TransactionalSnapshot = 2,
 }
 
-#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead, IgniteWrite)]
 pub enum CacheMode {
     Local = 0,
     Replicated = 1,
     Partitioned = 2,
 }
 
-#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead, IgniteWrite)]
 pub enum PartitionLossPolicy {
     ReadOnlySafe = 0,
     ReadOnlyAll = 1,
@@ -63,34 +63,34 @@ pub enum PartitionLossPolicy {
     Ignore = 4,
 }
 
-#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead, IgniteWrite)]
 pub enum RebalanceMode {
     Sync = 0,
     Async = 1,
     None = 2,
 }
 
-#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead, IgniteWrite)]
 pub enum WriteSynchronizationMode {
     FullSync = 0,
     FullAsync = 1,
     PrimarySync = 2,
 }
 
-#[derive(FromPrimitive, ToPrimitive, IgniteRead)]
+#[derive(FromPrimitive, ToPrimitive, IgniteRead, IgniteWrite)]
 pub enum IndexType {
     Sorted = 0,
     FullText = 1,
     Geospatial = 2,
 }
 
-#[derive(IgniteRead)]
+#[derive(IgniteRead, IgniteWrite)]
 pub struct CacheKeyConfiguration {
     pub type_name: String,
     pub affinity_key_field_name: String,
 }
 
-#[derive(IgniteRead)]
+#[derive(IgniteRead, IgniteWrite)]
 pub struct QueryField {
     pub name: String,
     pub type_name: String,
@@ -99,7 +99,7 @@ pub struct QueryField {
     pub default_value: Option<Value>,
 }
 
-#[derive(IgniteRead)]
+#[derive(IgniteRead, IgniteWrite)]
 pub struct QueryIndex {
     pub index_name: String,
     pub index_type: IndexType,
@@ -107,7 +107,7 @@ pub struct QueryIndex {
     pub fields: Vec<(String, bool)>,
 }
 
-#[derive(IgniteRead)]
+#[derive(IgniteRead, IgniteWrite)]
 pub struct QueryEntity {
     pub key_type_name: String,
     pub value_type_name: String,
@@ -151,4 +151,10 @@ pub struct CacheConfiguration {
     pub write_synchronization_mode: WriteSynchronizationMode,
     pub cache_key_configurations: Vec<CacheKeyConfiguration>,
     pub query_entities: Vec<QueryEntity>,
+}
+
+impl IgniteWrite for CacheConfiguration {
+    fn write(&self, _bytes: &mut BytesMut) -> Result<()> {
+        unimplemented!()
+    }
 }
