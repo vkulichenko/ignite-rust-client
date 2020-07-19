@@ -15,12 +15,11 @@ use std::cell::RefCell;
 
 use bytes::Buf;
 
-use configuration::Configuration;
+use configuration::{Configuration, CacheConfiguration};
 use cache::Cache;
 use error::Result;
 use network::Tcp;
 use binary::{IgniteWrite, IgniteRead};
-use crate::configuration::CacheConfiguration;
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
@@ -133,6 +132,7 @@ mod tests {
     use crate::binary::Value;
     use crate::cache::{Cache, PeekMode};
     use uuid::Uuid;
+    use crate::configuration::CacheConfiguration;
 
     #[test]
     fn test_put_get_i8() {
@@ -562,6 +562,54 @@ mod tests {
             .contains(&"new-cache".to_string()));
 
         let cache = client.get_or_create_cache("new-cache")
+            .expect("Failed to create cache.");
+
+        assert!(client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        cache.destroy()
+            .expect("Failed to destroy cache.");
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+    }
+
+    #[test]
+    fn test_create_cache_with_configuration() {
+        let client = client();
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        let cache = client.create_cache_with_configuration(CacheConfiguration::default("new-cache"))
+            .expect("Failed to create cache.");
+
+        assert!(client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        assert!(client.create_cache_with_configuration(CacheConfiguration::default("new-cache")).is_err());
+
+        cache.destroy()
+            .expect("Failed to destroy cache.");
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+    }
+
+    #[test]
+    fn test_get_or_create_cache_with_configuration() {
+        let client = client();
+
+        assert!(!client.cache_names()
+            .expect("Failed to get cache names.")
+            .contains(&"new-cache".to_string()));
+
+        let cache = client.get_or_create_cache_with_configuration(CacheConfiguration::default("new-cache"))
             .expect("Failed to create cache.");
 
         assert!(client.cache_names()

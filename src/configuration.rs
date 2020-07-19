@@ -7,9 +7,9 @@ use crate::error::{Result, ErrorKind, Error};
 use crate::binary::{IgniteRead, Value, IgniteWrite};
 
 pub struct Configuration {
-    pub(crate) address: String,
-    pub(crate) username: Option<String>,
-    pub(crate) password: Option<String>,
+    pub address: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 
 impl Configuration {
@@ -153,9 +153,46 @@ pub struct CacheConfiguration {
     pub query_entities: Vec<QueryEntity>,
 }
 
+impl CacheConfiguration {
+    pub fn default(name: &str) -> CacheConfiguration {
+        CacheConfiguration {
+            atomicity_mode: AtomicityMode::Atomic,
+            backups: 0,
+            mode: CacheMode::Partitioned,
+            copy_on_read: true,
+            data_region_name: None,
+            eager_ttl: true,
+            statistics_enabled: false,
+            group_name: None,
+            default_lock_timeout: 0,
+            max_concurrent_async_operations: 500,
+            max_query_iterators: 1024,
+            name: name.to_string(),
+            on_heap_cache_enabled: false,
+            partition_loss_policy: PartitionLossPolicy::Ignore,
+            query_detail_metrics_size: 0,
+            query_parallelism: 1,
+            read_from_backup: true,
+            rebalance_batch_size: 512 * 1024,
+            rebalance_batch_prefetch_count: 3,
+            rebalance_delay: 0,
+            rebalance_mode: RebalanceMode::Async,
+            rebalance_order: 0,
+            rebalance_throttle: 0,
+            rebalance_timeout: 10000,
+            sql_escape_all: false,
+            sql_index_inline_max_size: -1,
+            sql_schema: None,
+            write_synchronization_mode: WriteSynchronizationMode::PrimarySync,
+            cache_key_configurations: Vec::new(),
+            query_entities: Vec::new(),
+        }
+    }
+}
+
 macro_rules! write_property {
     ($bytes:expr, $count:expr, $code:expr, $prop:expr) => {
-        $bytes.put_i16($code);
+        $bytes.put_i16_le($code);
         $prop.write($bytes)?;
         $count = $count + 1;
     };

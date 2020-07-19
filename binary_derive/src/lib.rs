@@ -87,9 +87,9 @@ pub fn binary_write_derive(input: TokenStream) -> TokenStream {
             quote! {
                 impl IgniteWrite for #name {
                     fn write(&self, bytes: &mut BytesMut) -> Result<()> {
-                        let value = self.to_i32().ok_or_else(|| Error::new(ErrorKind::Serde, format!("Failed to write enum: {}", type_name::<#name>())))?;
-
-                        value.write(bytes)
+                        self.to_i32()
+                            .ok_or_else(|| Error::new(ErrorKind::Serde, format!("Failed to write enum: {}", type_name::<#name>())))?
+                            .write(bytes)
                     }
                 }
             }
