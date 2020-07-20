@@ -3,6 +3,8 @@ use uuid::Uuid;
 
 use crate::error::{Result, ErrorKind, Error};
 
+const PROTO_VER: i8 = 1;
+
 #[derive(PartialEq, Debug)]
 pub enum Value {
     I8(i8),
@@ -15,6 +17,21 @@ pub enum Value {
     Bool(bool),
     String(String),
     Uuid(Uuid),
+    BinaryObject(BinaryObject),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct BinaryObject {
+    flags: i16,
+    type_id: i32,
+    hash_code: i32,
+    bytes: Bytes,
+}
+
+impl BinaryObject {
+    pub fn field(&self, name: &str) -> Result<Option<Value>> {
+        Ok(None)
+    }
 }
 
 pub(crate) trait Nullable {}
@@ -76,6 +93,17 @@ impl IgniteWrite for Value {
             Value::Uuid(v) => {
                 v.write(bytes)
             },
+            Value::BinaryObject(v) => {
+                bytes.put_i8(103);
+                bytes.put_i8(PROTO_VER);
+                bytes.put_i16_le(v.flags);
+                bytes.put_i32_le(v.type_id);
+                bytes.put_i32_le(v.hash_code);
+                bytes.put_i32_le((v.bytes.len() + 16) as i32);
+                bytes.put(v.bytes.clone());
+
+                Ok(())
+            }
         }
     }
 }
@@ -246,6 +274,26 @@ impl IgniteRead for Value {
             8 => Ok(Value::Bool(bool::read(bytes)?)),
             9 => Ok(Value::String(String::read(bytes)?)),
             10 => Ok(Value::Uuid(Uuid::read(bytes)?)),
+            103 => {
+                let proto_ver = bytes.get_i8();
+
+                if proto_ver == PROTO_VER {
+                    let flags = bytes.get_i16_le();
+                    let type_id = bytes.get_i32_le();
+                    let hash_code = bytes.get_i32_le();
+                    let len = (bytes.get_i32_le() - 16) as usize;
+
+                    Ok(Value::BinaryObject(BinaryObject {
+                        flags,
+                        type_id,
+                        hash_code,
+                        bytes: bytes.slice(..len),
+                    }))
+                }
+                else {
+                    Err(Error::new(ErrorKind::Serde, format!("Unsupported protocol version: {}", proto_ver)))
+                }
+            }
             _ => Err(Error::new(ErrorKind::Serde, format!("Invalid type code: {}", type_code))),
         }
     }
@@ -274,6 +322,7 @@ impl IgniteRead for i64 {
         Ok(bytes.get_i64_le())
     }
 }
+
 impl IgniteRead for f32 {
     fn read(bytes: &mut Bytes) -> Result<f32> {
         Ok(bytes.get_f32_le())
