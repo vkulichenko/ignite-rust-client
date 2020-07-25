@@ -1,9 +1,38 @@
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use bytes::{BufMut, Buf, BytesMut, Bytes};
 use uuid::Uuid;
 
 use crate::error::{Result, ErrorKind, Error};
+use crate::network::Tcp;
 
 const PROTO_VER: i8 = 1;
+
+pub struct Binary {
+    tcp: Rc<RefCell<Tcp>>,
+}
+
+impl Binary {
+    pub(crate) fn new(tcp: Rc<RefCell<Tcp>>) -> Binary {
+        Binary { tcp }
+    }
+
+    pub fn type_name(&self, type_id: i32) -> Result<Option<String>> {
+        self.tcp.borrow_mut().execute(
+            3000,
+            |request| {
+                0i8.write(request)?;
+                type_id.write(request)?;
+
+                Ok(())
+            },
+            |response| {
+                <Option<String>>::read(response)
+            }
+        )
+    }
+}
 
 #[derive(PartialEq, Debug)]
 pub enum Value {
@@ -29,7 +58,7 @@ pub struct BinaryObject {
 }
 
 impl BinaryObject {
-    pub fn field(&self, name: &str) -> Result<Option<Value>> {
+    pub fn field(&self, _name: &str) -> Result<Option<Value>> {
         Ok(None)
     }
 }
@@ -232,6 +261,18 @@ impl<T: IgniteWrite> IgniteWrite for Vec<T> {
         bytes.put_i32_le(self.len() as i32);
 
         for item in self {
+            item.write(bytes)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<T: IgniteWrite> IgniteWrite for &[T] {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        bytes.put_i32_le(self.len() as i32);
+
+        for item in self.iter() {
             item.write(bytes)?;
         }
 

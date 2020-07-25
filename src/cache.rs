@@ -1,29 +1,21 @@
+use std::any::type_name;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use bytes::{BytesMut, Bytes, BufMut, Buf};
+use bytes::{BytesMut, Bytes, Buf};
+use num_traits::ToPrimitive;
 
 use crate::binary::{Value, IgniteWrite, IgniteRead};
-use crate::error::Result;
+use crate::error::{Result, ErrorKind, Error};
 use crate::network::Tcp;
 use crate::configuration::CacheConfiguration;
 
+#[derive(ToPrimitive, IgniteWrite)]
 pub enum PeekMode {
-    All,
-    Near,
-    Primary,
-    Backup,
-}
-
-impl From<&PeekMode> for u8 {
-    fn from(mode: &PeekMode) -> u8 {
-        match mode {
-            PeekMode::All => 0,
-            PeekMode::Near => 1,
-            PeekMode::Primary => 2,
-            PeekMode::Backup => 3,
-        }
-    }
+    All = 0,
+    Near = 1,
+    Primary = 2,
+    Backup = 3,
 }
 
 pub struct Cache {
@@ -83,7 +75,7 @@ impl Cache {
                 Ok(())
             },
             |response| {
-                Ok(response.get_i8() != 0)
+                bool::read(response)
             }
         )
     }
@@ -92,29 +84,10 @@ impl Cache {
         self.execute(
             1003,
             |request| {
-                request.put_i32_le(keys.len() as i32);
-
-                for key in keys {
-                    key.write(request)?;
-                }
-
-                Ok(())
+                keys.write(request)
             },
             |response| {
-                let len = response.get_i32_le() as usize;
-
-                let mut entries = Vec::with_capacity(len);
-
-                for _ in 0 .. len {
-                    let key = <Option<Value>>::read(response)?;
-                    let value = <Option<Value>>::read(response)?;
-
-                    if let Some(key) = key {
-                        entries.push((key, value));
-                    }
-                }
-
-                Ok(entries)
+                <Vec<(Value, Option<Value>)>>::read(response)
             }
         )
     }
@@ -123,14 +96,7 @@ impl Cache {
         self.execute(
             1004,
             |request| {
-                request.put_i32_le(entries.len() as i32);
-
-                for (key, value) in entries {
-                    key.write(request)?;
-                    value.write(request)?;
-                }
-
-                Ok(())
+                entries.write(request)
             },
             |_| { Ok(()) }
         )
@@ -203,7 +169,7 @@ impl Cache {
                 Ok(())
             },
             |response| {
-                Ok(response.get_i8() != 0)
+                bool::read(response)
             }
         )
     }
@@ -219,7 +185,7 @@ impl Cache {
                 Ok(())
             },
             |response| {
-                Ok(response.get_i8() != 0)
+                bool::read(response)
             }
         )
     }
@@ -231,7 +197,7 @@ impl Cache {
                 key.write(request)
             },
             |response| {
-                Ok(response.get_i8() != 0)
+                bool::read(response)
             }
         )
     }
@@ -240,16 +206,10 @@ impl Cache {
         self.execute(
             1012,
             |request| {
-                request.put_i32_le(keys.len() as i32);
-
-                for key in keys {
-                    key.write(request)?;
-                }
-
-                Ok(())
+                keys.write(request)
             },
             |response| {
-                Ok(response.get_i8() != 0)
+                bool::read(response)
             }
         )
     }
@@ -276,13 +236,7 @@ impl Cache {
         self.execute(
             1015,
             |request| {
-                request.put_i32_le(keys.len() as i32);
-
-                for key in keys {
-                    key.write(request)?;
-                }
-
-                Ok(())
+                keys.write(request)
             },
             |_| { Ok(()) }
         )
@@ -295,7 +249,7 @@ impl Cache {
                 key.write(request)
             },
             |response| {
-                Ok(response.get_i8() != 0)
+                bool::read(response)
             }
         )
     }
@@ -310,7 +264,7 @@ impl Cache {
                 Ok(())
             },
             |response| {
-                Ok(response.get_i8() != 0)
+                bool::read(response)
             }
         )
     }
@@ -319,13 +273,7 @@ impl Cache {
         self.execute(
             1018,
             |request| {
-                request.put_i32_le(keys.len() as i32);
-
-                for key in keys {
-                    key.write(request)?;
-                }
-
-                Ok(())
+                keys.write(request)
             },
             |_| { Ok(()) }
         )
@@ -343,16 +291,10 @@ impl Cache {
         self.execute(
             1020,
             |request| {
-                request.put_i32_le(peek_modes.len() as i32);
-
-                for peek_mode in peek_modes {
-                    request.put_u8(u8::from(peek_mode));
-                }
-
-                Ok(())
+                peek_modes.write(request)
             },
             |response| {
-                Ok(response.get_i64_le())
+                i64::read(response)
             }
         )
     }
@@ -361,9 +303,7 @@ impl Cache {
         self.tcp.borrow_mut().execute(
             1056,
             |request| {
-                request.put_i32_le(self.id());
-
-                Ok(())
+                self.id().write(request)
             },
             |_| { Ok(()) }
         )
@@ -377,8 +317,10 @@ impl Cache {
         self.tcp.borrow_mut().execute(
             operation_code,
             |request| {
-                request.put_i32_le(self.id());
-                request.put_i8(0); // Unused.
+                self.id().write(request)?;
+
+                // Unused byte.
+                request.advance(1);
 
                 request_writer(request)
             },

@@ -13,13 +13,11 @@ use std::net::TcpStream;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use bytes::Buf;
-
 use configuration::{Configuration, CacheConfiguration};
 use cache::Cache;
 use error::Result;
 use network::Tcp;
-use binary::{IgniteWrite, IgniteRead};
+use binary::{IgniteWrite, IgniteRead, Binary};
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
@@ -45,54 +43,42 @@ impl Client {
         Ok(Client { tcp })
     }
 
+    pub fn binary(&self) -> Binary {
+        Binary::new(self.tcp.clone())
+    }
+
     pub fn cache_names(&self) -> Result<Vec<String>> {
         self.tcp.borrow_mut().execute(
             1050,
             |_| { Ok(()) },
             |response| {
-                let len = response.get_i32_le() as usize;
-
-                let mut names = Vec::with_capacity(len);
-
-                for _ in 0 .. len {
-                    let name: Option<String> = IgniteRead::read(response)?;
-
-                    if let Some(name) = name {
-                        names.push(name);
-                    }
-                }
-
-                Ok(names)
+                <Vec<String>>::read(response)
             }
         )
     }
 
     pub fn create_cache(&self, name: &str) -> Result<Cache> {
-        let name = name.to_string();
-
         self.tcp.borrow_mut().execute(
             1051,
             |request| {
-                name.clone().write(request)
+                name.to_string().write(request)
             },
             |_| { Ok(()) }
         )?;
 
-        Ok(Cache::new(name.clone(), self.tcp.clone()))
+        Ok(Cache::new(name.to_string(), self.tcp.clone()))
     }
 
     pub fn get_or_create_cache(&self, name: &str) -> Result<Cache> {
-        let name = name.to_string();
-
         self.tcp.borrow_mut().execute(
             1052,
             |request| {
-                name.clone().write(request)
+                name.to_string().write(request)
             },
             |_| { Ok(()) }
         )?;
 
-        Ok(Cache::new(name.clone(), self.tcp.clone()))
+        Ok(Cache::new(name.to_string(), self.tcp.clone()))
     }
 
     pub fn create_cache_with_configuration(&self, configuration: CacheConfiguration) -> Result<Cache> {
