@@ -129,7 +129,7 @@ impl IgniteWrite for Value {
                 bytes.put_i32_le(v.type_id);
                 bytes.put_i32_le(v.hash_code);
                 bytes.put_i32_le((v.bytes.len() + 16) as i32);
-                bytes.put(v.bytes.clone());
+                bytes.put(v.bytes.clone()); // TODO: Can we get rid of clone?
 
                 Ok(())
             }
