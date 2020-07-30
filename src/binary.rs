@@ -33,7 +33,21 @@ impl Binary {
         )
     }
 
-    pub fn type_descriptor(&self, type_id: i32) -> Result<Option<Type>> {
+    pub fn register_type_name(&self, type_id: i32, type_name: &str) -> Result<()> {
+        self.tcp.borrow_mut().execute(
+            3001,
+            |request| {
+                0i8.write(request)?;
+                type_id.write(request)?;
+                type_name.to_string().write(request)?;
+
+                Ok(())
+            },
+            |_| { Ok(()) }
+        )
+    }
+
+    pub fn get_type(&self, type_id: i32) -> Result<Option<Type>> {
         self.tcp.borrow_mut().execute(
             3002,
             |request| {
@@ -53,6 +67,16 @@ impl Binary {
             }
         )
     }
+
+    pub fn put_type(&self, type_desc: Type) -> Result<()> {
+        self.tcp.borrow_mut().execute(
+            3003,
+            |request| {
+                type_desc.write(request)
+            },
+            |_| { Ok(()) }
+        )
+    }
 }
 
 pub struct Type {
@@ -60,7 +84,7 @@ pub struct Type {
     pub name: String,
     pub affinity_key_field_name: String,
     pub fields: Vec<Field>,
-    pub enum_fields: Vec<(String, i32)>,
+    pub enum_fields: Option<Vec<(String, i32)>>,
     pub schemas: Vec<Schema>,
 }
 
@@ -72,10 +96,10 @@ impl IgniteRead for Type {
         let fields = <Vec<Field>>::read(bytes)?;
         let enum_fields =
             if bool::read(bytes)? {
-                <Vec<(String, i32)>>::read(bytes)?
+                Some(<Vec<(String, i32)>>::read(bytes)?)
             }
             else {
-                Vec::new()
+                None
             };
         let schemas = <Vec<Schema>>::read(bytes)?;
 
@@ -90,14 +114,37 @@ impl IgniteRead for Type {
     }
 }
 
-#[derive(IgniteRead)]
+impl IgniteWrite for Type {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        self.id.write(bytes)?;
+        self.name.write(bytes)?;
+        self.affinity_key_field_name.write(bytes)?;
+        self.fields.write(bytes)?;
+
+        match &self.enum_fields {
+            Some(enum_fields) => {
+                true.write(bytes)?;
+                enum_fields.write(bytes)?;
+            },
+            None => {
+                false.write(bytes)?;
+            },
+        }
+
+        self.schemas.write(bytes)?;
+
+        Ok(())
+    }
+}
+
+#[derive(IgniteRead, IgniteWrite)]
 pub struct Field {
     pub name: String,
     pub type_id: i32,
     pub field_id: i32,
 }
 
-#[derive(IgniteRead)]
+#[derive(IgniteRead, IgniteWrite)]
 pub struct Schema {
     pub id: i32,
     pub fields: Vec<(i32, i32)>,
