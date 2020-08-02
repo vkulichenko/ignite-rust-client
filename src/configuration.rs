@@ -457,7 +457,7 @@ macro_rules! write_property {
     ($bytes:expr, $count:expr, $code:expr, $prop:expr) => {
         $bytes.put_i16_le($code);
         $prop.write($bytes)?;
-        $count = $count + 1;
+        $count += 1;
     };
 }
 

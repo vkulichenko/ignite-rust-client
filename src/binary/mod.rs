@@ -1,8 +1,12 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::{HashSet, HashMap, LinkedList};
+use std::hash::{Hash, Hasher};
 
 use bytes::{BufMut, Buf, BytesMut, Bytes};
 use uuid::Uuid;
+use linked_hash_set::LinkedHashSet;
+use linked_hash_map::LinkedHashMap;
 
 use crate::error::{Result, ErrorKind, Error};
 use crate::network::Tcp;
@@ -150,7 +154,7 @@ pub struct Schema {
     pub fields: Vec<(i32, i32)>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub enum Value {
     I8(i8),
     I16(i16),
@@ -162,7 +166,50 @@ pub enum Value {
     Bool(bool),
     String(String),
     Uuid(Uuid),
+    I8Vec(Vec<i8>),
+    I16Vec(Vec<i16>),
+    I32Vec(Vec<i32>),
+    I64Vec(Vec<i64>),
+    F32Vec(Vec<f32>),
+    F64Vec(Vec<f64>),
+    CharVec(Vec<char>),
+    BoolVec(Vec<bool>),
+    StringVec(Vec<String>),
+    UuidVec(Vec<Uuid>),
+    Vec(Vec<Value>),
+    LinkedList(LinkedList<Value>),
+    HashSet(HashSet<Value>),
+    LinkedHashSet(LinkedHashSet<Value>),
+    HashMap(HashMap<Value, Value>),
+    LinkedHashMap(LinkedHashMap<Value, Value>),
     BinaryObject(BinaryObject),
+}
+
+// TODO: Implement
+impl PartialEq for Value {
+    fn eq(&self, _other: &Self) -> bool {
+        unimplemented!()
+    }
+
+    fn ne(&self, _other: &Self) -> bool {
+        unimplemented!()
+    }
+}
+
+// TODO: Eq vs PartialEq?
+impl Eq for Value {}
+
+// TODO: Implement
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, _state: &mut H) {
+        unimplemented!()
+    }
+
+    fn hash_slice<H: Hasher>(_data: &[Self], _state: &mut H)
+        where Self: Sized
+    {
+        unimplemented!()
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -187,6 +234,31 @@ impl Nullable for Uuid {}
 
 pub(crate) trait IgniteWrite {
     fn write(&self, bytes: &mut BytesMut) -> Result<()>;
+}
+
+macro_rules! write_collection {
+    ($bytes:expr, $col:expr, $type:expr) => {
+        $bytes.put_i8(24);
+        $bytes.put_i32_le($col.len() as i32);
+        $bytes.put_i8($type);
+
+        for item in $col {
+            item.write($bytes)?;
+        }
+    }
+}
+
+macro_rules! write_map {
+    ($bytes:expr, $col:expr, $type:expr) => {
+        $bytes.put_i8(25);
+        $bytes.put_i32_le($col.len() as i32);
+        $bytes.put_i8($type);
+
+        for (k, v) in $col {
+            k.write($bytes)?;
+            v.write($bytes)?;
+        }
+    }
 }
 
 impl IgniteWrite for Value {
@@ -238,6 +310,86 @@ impl IgniteWrite for Value {
             Value::Uuid(v) => {
                 v.write(bytes)
             },
+            Value::I8Vec(v) => {
+                bytes.put_i8(12);
+
+                v.write(bytes)
+            },
+            Value::I16Vec(v) => {
+                bytes.put_i8(13);
+
+                v.write(bytes)
+            },
+            Value::I32Vec(v) => {
+                bytes.put_i8(14);
+
+                v.write(bytes)
+            },
+            Value::I64Vec(v) => {
+                bytes.put_i8(15);
+
+                v.write(bytes)
+            },
+            Value::F32Vec(v) => {
+                bytes.put_i8(16);
+
+                v.write(bytes)
+            },
+            Value::F64Vec(v) => {
+                bytes.put_i8(17);
+
+                v.write(bytes)
+            },
+            Value::CharVec(v) => {
+                bytes.put_i8(18);
+
+                v.write(bytes)
+            },
+            Value::BoolVec(v) => {
+                bytes.put_i8(19);
+
+                v.write(bytes)
+            },
+            Value::StringVec(v) => {
+                bytes.put_i8(20);
+
+                v.write(bytes)
+            },
+            Value::UuidVec(v) => {
+                bytes.put_i8(21);
+
+                v.write(bytes)
+            },
+            Value::Vec(v) => {
+                write_collection!(bytes, v, 1);
+
+                Ok(())
+            },
+            Value::LinkedList(v) => {
+                write_collection!(bytes, v, 2);
+
+                Ok(())
+            },
+            Value::HashSet(v) => {
+                write_collection!(bytes, v, 3);
+
+                Ok(())
+            },
+            Value::LinkedHashSet(v) => {
+                write_collection!(bytes, v, 4);
+
+                Ok(())
+            },
+            Value::HashMap(v) => {
+                write_map!(bytes, v, 1);
+
+                Ok(())
+            },
+            Value::LinkedHashMap(v) => {
+                write_map!(bytes, v, 2);
+
+                Ok(())
+            },
             Value::BinaryObject(v) => {
                 bytes.put_i8(103);
                 bytes.put_i8(PROTO_VER);
@@ -248,7 +400,7 @@ impl IgniteWrite for Value {
                 bytes.put(v.bytes.clone()); // TODO: Can we get rid of clone?
 
                 Ok(())
-            }
+            },
         }
     }
 }
@@ -431,6 +583,86 @@ impl IgniteRead for Value {
             8 => Ok(Value::Bool(bool::read(bytes)?)),
             9 => Ok(Value::String(String::read(bytes)?)),
             10 => Ok(Value::Uuid(Uuid::read(bytes)?)),
+            12 => Ok(Value::I8Vec(<Vec<i8>>::read(bytes)?)),
+            13 => Ok(Value::I16Vec(<Vec<i16>>::read(bytes)?)),
+            14 => Ok(Value::I32Vec(<Vec<i32>>::read(bytes)?)),
+            15 => Ok(Value::I64Vec(<Vec<i64>>::read(bytes)?)),
+            16 => Ok(Value::F32Vec(<Vec<f32>>::read(bytes)?)),
+            17 => Ok(Value::F64Vec(<Vec<f64>>::read(bytes)?)),
+            18 => Ok(Value::CharVec(<Vec<char>>::read(bytes)?)),
+            19 => Ok(Value::BoolVec(<Vec<bool>>::read(bytes)?)),
+            20 => Ok(Value::StringVec(<Vec<String>>::read(bytes)?)),
+            21 => Ok(Value::UuidVec(<Vec<Uuid>>::read(bytes)?)),
+            24 => {
+                let len = bytes.get_i32_le() as usize;
+                let col_type = bytes.get_i8();
+
+                match col_type {
+                    -1 | 0 | 1 | 5 => {
+                        let mut vec = Vec::with_capacity(len);
+
+                        for _ in 0 .. len {
+                            vec.push(Value::read(bytes)?);
+                        }
+
+                        Ok(Value::Vec(vec))
+                    },
+                    2 => {
+                        let mut linked_list = LinkedList::new();
+
+                        for _ in 0 .. len {
+                            linked_list.push_back(Value::read(bytes)?);
+                        }
+
+                        Ok(Value::LinkedList(linked_list))
+                    },
+                    3 => {
+                        let mut hash_set = HashSet::with_capacity(len);
+
+                        for _ in 0 .. len {
+                            hash_set.insert(Value::read(bytes)?);
+                        }
+
+                        Ok(Value::HashSet(hash_set))
+                    },
+                    4 => {
+                        let mut linked_hash_set = LinkedHashSet::with_capacity(len);
+
+                        for _ in 0 .. len {
+                            linked_hash_set.insert(Value::read(bytes)?);
+                        }
+
+                        Ok(Value::LinkedHashSet(linked_hash_set))
+                    },
+                    _ => Err(Error::new(ErrorKind::Serde, format!("Invalid collection type: {}", col_type))),
+                }
+            },
+            25 => {
+                let len = bytes.get_i32_le() as usize;
+                let map_type = bytes.get_i8();
+
+                match map_type {
+                    1 => {
+                        let mut hash_map = HashMap::with_capacity(len);
+
+                        for _ in 0 .. len {
+                            hash_map.insert(Value::read(bytes)?, Value::read(bytes)?);
+                        }
+
+                        Ok(Value::HashMap(hash_map))
+                    },
+                    2 => {
+                        let mut linked_hash_map = LinkedHashMap::with_capacity(len);
+
+                        for _ in 0 .. len {
+                            linked_hash_map.insert(Value::read(bytes)?, Value::read(bytes)?);
+                        }
+
+                        Ok(Value::LinkedHashMap(linked_hash_map))
+                    },
+                    _ => Err(Error::new(ErrorKind::Serde, format!("Invalid map type: {}", map_type))),
+                }
+            },
             103 => {
                 let proto_ver = bytes.get_i8();
 
@@ -450,7 +682,7 @@ impl IgniteRead for Value {
                 else {
                     Err(Error::new(ErrorKind::Serde, format!("Unsupported protocol version: {}", proto_ver)))
                 }
-            }
+            },
             _ => Err(Error::new(ErrorKind::Serde, format!("Invalid type code: {}", type_code))),
         }
     }
