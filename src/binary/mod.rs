@@ -7,6 +7,7 @@ use bytes::{BufMut, Buf, BytesMut, Bytes};
 use uuid::Uuid;
 use linked_hash_set::LinkedHashSet;
 use linked_hash_map::LinkedHashMap;
+use chrono::{NaiveDateTime, Timelike};
 
 use crate::error::{Result, ErrorKind, Error};
 use crate::network::Tcp;
@@ -166,6 +167,7 @@ pub enum Value {
     Bool(bool),
     String(String),
     Uuid(Uuid),
+    Timestamp(NaiveDateTime),
     I8Vec(Vec<i8>),
     I16Vec(Vec<i16>),
     I32Vec(Vec<i32>),
@@ -176,6 +178,7 @@ pub enum Value {
     BoolVec(Vec<bool>),
     StringVec(Vec<String>),
     UuidVec(Vec<Uuid>),
+    TimestampVec(Vec<NaiveDateTime>),
     Vec(Vec<Value>),
     LinkedList(LinkedList<Value>),
     HashSet(HashSet<Value>),
@@ -231,6 +234,7 @@ pub(crate) trait Nullable {}
 impl Nullable for Value {}
 impl Nullable for String {}
 impl Nullable for Uuid {}
+impl Nullable for NaiveDateTime {}
 
 pub(crate) trait IgniteWrite {
     fn write(&self, bytes: &mut BytesMut) -> Result<()>;
@@ -310,6 +314,9 @@ impl IgniteWrite for Value {
             Value::Uuid(v) => {
                 v.write(bytes)
             },
+            Value::Timestamp(v) => {
+                v.write(bytes)
+            }
             Value::I8Vec(v) => {
                 bytes.put_i8(12);
 
@@ -357,6 +364,11 @@ impl IgniteWrite for Value {
             },
             Value::UuidVec(v) => {
                 bytes.put_i8(21);
+
+                v.write(bytes)
+            },
+            Value::TimestampVec(v) => {
+                bytes.put_i8(34);
 
                 v.write(bytes)
             },
@@ -509,6 +521,16 @@ impl IgniteWrite for Uuid {
     }
 }
 
+impl IgniteWrite for NaiveDateTime {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        bytes.put_i8(33);
+        bytes.put_i64_le(self.timestamp_millis());
+        bytes.put_i32_le(self.nanosecond() as i32);
+
+        Ok(())
+    }
+}
+
 impl<T: IgniteWrite + Nullable> IgniteWrite for Option<T> {
     fn write(&self, bytes: &mut BytesMut) -> Result<()> {
         match self {
@@ -583,6 +605,7 @@ impl IgniteRead for Value {
             8 => Ok(Value::Bool(bool::read(bytes)?)),
             9 => Ok(Value::String(String::read(bytes)?)),
             10 => Ok(Value::Uuid(Uuid::read(bytes)?)),
+            33 => Ok(Value::Timestamp(NaiveDateTime::read(bytes)?)),
             12 => Ok(Value::I8Vec(<Vec<i8>>::read(bytes)?)),
             13 => Ok(Value::I16Vec(<Vec<i16>>::read(bytes)?)),
             14 => Ok(Value::I32Vec(<Vec<i32>>::read(bytes)?)),
@@ -593,6 +616,7 @@ impl IgniteRead for Value {
             19 => Ok(Value::BoolVec(<Vec<bool>>::read(bytes)?)),
             20 => Ok(Value::StringVec(<Vec<String>>::read(bytes)?)),
             21 => Ok(Value::UuidVec(<Vec<Uuid>>::read(bytes)?)),
+            34 => Ok(Value::TimestampVec(<Vec<NaiveDateTime>>::read(bytes)?)),
             24 => {
                 let len = bytes.get_i32_le() as usize;
                 let col_type = bytes.get_i8();
@@ -779,6 +803,18 @@ impl IgniteRead for Uuid {
         }
 
         Ok(Uuid::from_bytes(arr))
+    }
+}
+
+impl IgniteRead for NaiveDateTime {
+    fn read(bytes: &mut Bytes) -> Result<NaiveDateTime> {
+        check_flag(bytes, 33)?;
+
+        let millis = bytes.get_i64_le();
+        let nanos = bytes.get_i32_le() as u32;
+
+        // TODO: Expects seconds?
+        Ok(NaiveDateTime::from_timestamp(millis, nanos))
     }
 }
 
