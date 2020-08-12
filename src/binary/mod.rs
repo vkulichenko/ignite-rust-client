@@ -11,6 +11,8 @@ use chrono::{NaiveDateTime, Timelike};
 
 use crate::error::{Result, ErrorKind, Error};
 use crate::network::Tcp;
+use bigdecimal::BigDecimal;
+use num_bigint::BigInt;
 
 const PROTO_VER: i8 = 1;
 
@@ -168,6 +170,7 @@ pub enum Value {
     String(String),
     Uuid(Uuid),
     Timestamp(NaiveDateTime),
+    Decimal(BigDecimal),
     I8Vec(Vec<i8>),
     I16Vec(Vec<i16>),
     I32Vec(Vec<i32>),
@@ -179,6 +182,7 @@ pub enum Value {
     StringVec(Vec<String>),
     UuidVec(Vec<Uuid>),
     TimestampVec(Vec<NaiveDateTime>),
+    DecimalVec(Vec<BigDecimal>),
     Vec(Vec<Value>),
     LinkedList(LinkedList<Value>),
     HashSet(HashSet<Value>),
@@ -235,6 +239,7 @@ impl Nullable for Value {}
 impl Nullable for String {}
 impl Nullable for Uuid {}
 impl Nullable for NaiveDateTime {}
+impl Nullable for BigDecimal {}
 
 pub(crate) trait IgniteWrite {
     fn write(&self, bytes: &mut BytesMut) -> Result<()>;
@@ -316,7 +321,10 @@ impl IgniteWrite for Value {
             },
             Value::Timestamp(v) => {
                 v.write(bytes)
-            }
+            },
+            Value::Decimal(v) => {
+                v.write(bytes)
+            },
             Value::I8Vec(v) => {
                 bytes.put_i8(12);
 
@@ -369,6 +377,11 @@ impl IgniteWrite for Value {
             },
             Value::TimestampVec(v) => {
                 bytes.put_i8(34);
+
+                v.write(bytes)
+            },
+            Value::DecimalVec(v) => {
+                bytes.put_i8(31);
 
                 v.write(bytes)
             },
@@ -531,6 +544,20 @@ impl IgniteWrite for NaiveDateTime {
     }
 }
 
+impl IgniteWrite for BigDecimal {
+    fn write(&self, bytes: &mut BytesMut) -> Result<()> {
+        let (int, scale) = self.as_bigint_and_exponent();
+        let vec = int.to_signed_bytes_le();
+
+        bytes.put_i8(30);
+        bytes.put_i32_le(scale as i32);
+        bytes.put_i32_le(vec.len() as i32);
+        bytes.put_slice(vec.as_slice());
+
+        Ok(())
+    }
+}
+
 impl<T: IgniteWrite + Nullable> IgniteWrite for Option<T> {
     fn write(&self, bytes: &mut BytesMut) -> Result<()> {
         match self {
@@ -606,6 +633,7 @@ impl IgniteRead for Value {
             9 => Ok(Value::String(String::read(bytes)?)),
             10 => Ok(Value::Uuid(Uuid::read(bytes)?)),
             33 => Ok(Value::Timestamp(NaiveDateTime::read(bytes)?)),
+            30 => Ok(Value::Decimal(BigDecimal::read(bytes)?)),
             12 => Ok(Value::I8Vec(<Vec<i8>>::read(bytes)?)),
             13 => Ok(Value::I16Vec(<Vec<i16>>::read(bytes)?)),
             14 => Ok(Value::I32Vec(<Vec<i32>>::read(bytes)?)),
@@ -617,6 +645,7 @@ impl IgniteRead for Value {
             20 => Ok(Value::StringVec(<Vec<String>>::read(bytes)?)),
             21 => Ok(Value::UuidVec(<Vec<Uuid>>::read(bytes)?)),
             34 => Ok(Value::TimestampVec(<Vec<NaiveDateTime>>::read(bytes)?)),
+            31 => Ok(Value::DecimalVec(<Vec<BigDecimal>>::read(bytes)?)),
             24 => {
                 let len = bytes.get_i32_le() as usize;
                 let col_type = bytes.get_i8();
@@ -772,7 +801,6 @@ impl IgniteRead for String {
         check_flag(bytes, 9)?;
 
         let len = bytes.get_i32_le() as usize;
-
         let vec = bytes.slice(..len).to_vec();
 
         bytes.advance(len);
@@ -815,6 +843,22 @@ impl IgniteRead for NaiveDateTime {
 
         // TODO: Expects seconds?
         Ok(NaiveDateTime::from_timestamp(millis, nanos))
+    }
+}
+
+impl IgniteRead for BigDecimal {
+    fn read(bytes: &mut Bytes) -> Result<Self> {
+        check_flag(bytes, 30)?;
+
+        let scale = bytes.get_i32_le() as i64;
+        let len = bytes.get_i32_le() as usize;
+        let vec = bytes.slice(..len);
+
+        bytes.advance(len);
+
+        let int = BigInt::from_signed_bytes_le(vec.as_ref());
+
+        Ok(BigDecimal::new(int, scale))
     }
 }
 
